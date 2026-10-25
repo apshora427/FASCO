@@ -1,10 +1,8 @@
-// TODO: build from the Figma frame — Choose a new password (Figma frame: Enter New Password)
-const EnterNewPassword = () => (
-  <main className="container py-[80px]">
-    <div className="rounded-[8px] border border-dashed border-line p-10 text-center">
-      <h1 className="font-Display text-[40px] font-semibold text-black dark:text-white">EnterNewPassword</h1>
-      <p className="mt-3 text-[16px] text-subtext">Choose a new password (Figma frame: Enter New Password)</p>
-    </div>
-  </main>
-)
+import { useNavigate } from "react-router"
+import AuthLayout, { AuthButton, AuthInput } from "../components/AuthLayout"
+
+const EnterNewPassword = () => {
+  const navigate = useNavigate()
+  return <AuthLayout title="Enter New Password"><h2 className="auth-section-title font-Display font-semibold">Enter Your New Password</h2><form onSubmit={(event) => { event.preventDefault(); navigate("/login") }} className="mt-7 space-y-1"><AuthInput label="New Password" type="password" required /><AuthInput label="Confirmation Password" type="password" required /><div className="pt-5"><AuthButton variant="light">Submit</AuthButton></div></form></AuthLayout>
+}
 export default EnterNewPassword

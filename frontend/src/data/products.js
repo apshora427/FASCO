@@ -1,221 +1,103 @@
-import F_1 from "../assets/F-1.png"
-import F_2 from "../assets/F-2.png"
-import F_3 from "../assets/F-3.png"
-import F_4 from "../assets/F-4.png"
-import S_1 from "../assets/S-1.png"
-import S_2 from "../assets/S-2.png"
-import S_3 from "../assets/S-3.png"
-import S_4 from "../assets/S-4.png"
-import E_1 from "../assets/E-1.png"
-import E_2 from "../assets/E-2.png"
-import E_3 from "../assets/E-3.png"
-import E_4 from "../assets/E-4.png"
-import mainImg from "../assets/gamepad-main.png"
-import thumb_1 from "../assets/gamepad-thumb-1.png"
-import thumb_2 from "../assets/gamepad-thumb-2.png"
-import thumb_3 from "../assets/gamepad-thumb-3.png"
+import arrival1 from "../assets/arrival-1.png"
+import arrival2 from "../assets/arrival-2.png"
+import arrival3 from "../assets/arrival-3.png"
+import arrival4 from "../assets/arrival-4.png"
+import arrival5 from "../assets/arrival-5.png"
+import arrival6 from "../assets/arrival-6.png"
+import deal1 from "../assets/deal-1.png"
+import deal2 from "../assets/deal-2.png"
+import deal3 from "../assets/deal-3.png"
+import insta2 from "../assets/insta-2.png"
+import insta3 from "../assets/insta-3.png"
+import insta4 from "../assets/insta-4.png"
+import insta5 from "../assets/insta-5.png"
+import insta6 from "../assets/insta-6.png"
+import testi1 from "../assets/testi-1.png"
+import testi2 from "../assets/testi-2.png"
 
+const mk = (id, title, image, category, extra = {}) => ({
+  id,
+  title,
+  price: 95.5,
+  brand: "Al Karam",
+  rating: 5,
+  reviews: "(4.1k)",
+  tag: "Almost Sold Out",
+  category,
+  image,
+  ...extra,
+})
+
+// The six New Arrivals cards from the design first, then the other catalog
+// categories so every filter pill has real products to show.
 export const products = [
+  mk(1, "Shiny Dress", arrival1, "Women's Fashion", { arrival: true }),
+  mk(2, "Long Dress", arrival2, "Women's Fashion", { arrival: true }),
+  mk(3, "Full Sweater", arrival3, "Women's Fashion", { arrival: true }),
+  mk(4, "White Dress", arrival4, "Women's Fashion", { arrival: true }),
+  mk(5, "Colorful Dress", arrival5, "Women's Fashion", { arrival: true }),
+  mk(6, "White Shirt", arrival6, "Women's Fashion", { arrival: true }),
+  mk(7, "Classic Blazer", insta2, "Men's Fashion"),
+  mk(8, "Urban Jacket", insta6, "Men's Fashion"),
+  mk(9, "Casual Shirt", insta4, "Men's Fashion"),
+  mk(10, "Leather Handbag", deal2, "Women Accessories"),
+  mk(11, "Elegant Hat", deal3, "Women Accessories"),
+  mk(12, "Silk Scarf", insta3, "Women Accessories"),
+  mk(13, "Classic Watch", insta6, "Men Accessories"),
+  mk(14, "Leather Belt", insta4, "Men Accessories"),
+  mk(15, "Summer Set", insta5, "Discount Deals", { originalPrice: 190, discount: "50% OFF" }),
+  mk(16, "Evening Dress", deal1, "Discount Deals", { originalPrice: 160, discount: "40% OFF" }),
+  mk(17, "Denim Outfit", deal2, "Discount Deals", { originalPrice: 140, discount: "30% OFF" }),
+  mk(18, "Cozy Sweater", arrival3, "Discount Deals", { originalPrice: 130, discount: "25% OFF" }),
+]
+
+export const newArrivals = products.filter((p) => p.arrival)
+
+export const categories = [
+  "Men's Fashion",
+  "Women's Fashion",
+  "Women Accessories",
+  "Men Accessories",
+  "Discount Deals",
+]
+
+// Deals Of The Month carousel — the first card carries the "Starting Date"
+// overlay exactly like the design.
+export const dealProducts = [
+  { id: "d1", title: "Shiny Black Dress", image: deal1, label: "01", sublabel: "Starting Date", badge: "30% OFF" },
+  { id: "d2", title: "Denim Two Piece", image: deal2, badge: "25% OFF" },
+  { id: "d3", title: "Summer Hat Look", image: deal3, badge: "20% OFF" },
+  { id: "d4", title: "Long White Dress", image: arrival2, badge: "15% OFF" },
+]
+
+export const testimonials = [
   {
     id: 1,
-    title: "Havic HV G-92 Gamepad",
-    price: 192.0,
-    originalPrice: null,
-    discount: null,
-    color: "Black",
-    image: mainImg,
-    gallery: [thumb_1, mainImg, thumb_2, thumb_3],
-    rating: 4.5,
-    reviews: 150,
-    category: "Gaming",
-    description:
-      "PlayStation 5 Controller Skin High quality vinyl with air channel adhesive for easy bubble free install & mess free removal Pressure sensitive.",
+    name: "James K.",
+    role: "Traveler",
+    image: testi1,
+    quote:
+      "You won't regret it. I would like to personally thank you for your outstanding product. Absolutely wonderful!",
   },
   {
     id: 2,
-    title: "HAVIT HV-G92 Gamepad",
-    price: 120,
-    originalPrice: 160,
-    discount: "-40%",
-    color: "Black",
-    image: F_1,
-    rating: 5,
-    reviews: 88,
-    category: "Gaming",
-    description:
-      "Ergonomic wireless gamepad with dual vibration motors and long-lasting battery for immersive gaming sessions.",
+    name: "Amelia R.",
+    role: "Stylist",
+    image: testi2,
+    quote:
+      "The quality feels premium and delivery was faster than expected. The fit is exactly as shown on the site — I get compliments every time.",
   },
   {
     id: 3,
-    title: "AK-900 Wired Keyboard",
-    price: 960,
-    originalPrice: 1160,
-    discount: "-35%",
-    color: "Black",
-    image: F_2,
-    rating: 5,
-    reviews: 75,
-    category: "Gaming",
-    description:
-      "RGB backlit wired keyboard with durable mechanical switches and anti-ghosting keys built for pro gamers.",
-  },
-  {
-    id: 4,
-    title: "IPS LCD Gaming Monitor",
-    price: 370,
-    originalPrice: 400,
-    discount: "-30%",
-    color: "Black",
-    image: F_3,
-    rating: 5,
-    reviews: 99,
-    category: "Gaming",
-    description:
-      "27-inch IPS LCD gaming monitor with a high refresh rate and vivid color reproduction for smooth gameplay.",
-  },
-  {
-    id: 5,
-    title: "RGB liquid CPU Cooler",
-    price: 160,
-    originalPrice: 170,
-    discount: null,
-    color: "Black",
-    image: F_4,
-    rating: 5,
-    reviews: 65,
-    category: "Gaming",
-    description:
-      "High-performance RGB liquid CPU cooler with dual illuminated fans for whisper-quiet cooling.",
-  },
-  {
-    id: 6,
-    title: "The north coat",
-    price: 260,
-    originalPrice: 360,
-    discount: null,
-    color: "Red",
-    image: S_1,
-    rating: 5,
-    reviews: 65,
-    category: "Fashion",
-    description:
-      "Premium insulated winter coat with a water-resistant shell and cozy fleece lining for cold days.",
-  },
-  {
-    id: 7,
-    title: "Gucci duffle bag",
-    price: 960,
-    originalPrice: 1160,
-    discount: null,
-    color: "Red",
-    image: S_2,
-    rating: 5,
-    reviews: 65,
-    category: "Fashion",
-    description:
-      "Signature GG canvas duffle bag with leather trim and a spacious main compartment for weekend trips.",
-  },
-  {
-    id: 8,
-    title: "RGB liquid CPU Cooler",
-    price: 160,
-    originalPrice: 170,
-    discount: null,
-    color: "Black",
-    image: S_3,
-    rating: 5,
-    reviews: 65,
-    category: "Computers",
-    description:
-      "Compact RGB liquid cooling system with an efficient pump and silent radiator fans for your build.",
-  },
-  {
-    id: 9,
-    title: "Small BookSelf",
-    price: 360,
-    originalPrice: 460,
-    discount: null,
-    color: "Green",
-    image: S_4,
-    rating: 5,
-    reviews: 65,
-    category: "Home",
-    description:
-      "Space-saving wooden bookshelf with five tiers, perfect for small rooms, offices, and cozy corners.",
-  },
-  {
-    id: 10,
-    title: "Breed Dry Dog Food",
-    price: 120,
-    originalPrice: null,
-    discount: null,
-    color: "Green",
-    image: E_1,
-    rating: 5,
-    reviews: 88,
-    category: "Pets",
-    description:
-      "Nutrient-rich dry dog food made with real chicken, wholesome grains, and balanced vitamins.",
-  },
-  {
-    id: 11,
-    title: "CANON EOS DSLR Camera",
-    price: 960,
-    originalPrice: null,
-    discount: null,
-    color: "Black",
-    image: E_2,
-    rating: 5,
-    reviews: 75,
-    category: "Electronics",
-    description:
-      "Professional DSLR camera with a 24MP sensor, 4K video, and fast dual-pixel autofocus.",
-  },
-  {
-    id: 12,
-    title: "ASUS FHD Gaming Laptop",
-    price: 370,
-    originalPrice: null,
-    discount: null,
-    color: "Black",
-    image: E_3,
-    rating: 5,
-    reviews: 99,
-    category: "Electronics",
-    description:
-      "FHD gaming laptop with a high-refresh display, powerful GPU, and RGB backlit keyboard.",
-  },
-  {
-    id: 13,
-    title: "Curology Product Set",
-    price: 375,
-    originalPrice: null,
-    discount: null,
-    color: "Red",
-    image: E_4,
-    rating: 5,
-    reviews: 99,
-    category: "Beauty",
-    description:
-      "Custom skincare set with a gentle cleanser, targeted treatment, and daily moisturizer.",
+    name: "Jason W.",
+    role: "Photographer",
+    image: insta4,
+    quote:
+      "Keep doing! Thank you for making it truly amazing. FASCO is one of an online store I keep coming back to, the team made me great.",
   },
 ]
 
-const ids = (list) => list.map((id) => products.find((p) => p.id === id)).filter(Boolean)
+export const formatPrice = (value) => `$${Number(value).toFixed(2)}`
 
-export const flashSaleProducts = ids([2, 3, 4, 5])
-export const bestSellingProducts = ids([6, 7, 8, 9])
-export const exploreProducts = ids([10, 11, 12, 13])
-export const gamingProducts = ids([1, 2, 3, 4, 5])
-export const categories = [...new Set(products.map((p) => p.category))]
-
-export const productColors = [
-  { name: "Black", value: "#000000" },
-  { name: "Red", value: "#DB4444" },
-  { name: "Green", value: "#4CAF50" },
-]
-
-export const formatPrice = (value) => `$${Number(value).toFixed(value % 1 ? 2 : 0)}`
-
-export const COUPON_CODE = "EXCLUSIVE10"
+export const COUPON_CODE = "FASCO10"
 export const COUPON_DISCOUNT = 0.1

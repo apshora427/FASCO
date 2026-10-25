@@ -4,7 +4,9 @@ import { useInView } from "react-intersection-observer";
 const ScrollFadeIn = ({ children, delay = 0 }) => {
   const { ref, inView } = useInView({
     triggerOnce: true,
-    threshold: 0.4, // was 0.1 before – now it waits for 40% to show
+    // low threshold so tall sections still trigger on small viewports —
+    // 40% was unreachable when a section is much taller than the window
+    threshold: 0.1,
   });
 
   return (

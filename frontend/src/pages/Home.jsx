@@ -1,10 +1,42 @@
-// TODO: build from the Figma frame — Homepage — hero, deals of the month, new arrivals, promo, brand strip, Instagram, testimonials, newsletter (Figma frame: Homepage)
+import Navbar from "../components/Navbar"
+import Hero from "../components/Hero"
+import BrandStrip from "../components/BrandStrip"
+import DealsOfTheMonth from "../components/DealsOfTheMonth"
+import NewArrival from "../components/NewArrival"
+import PromoBanner from "../components/PromoBanner"
+import Features from "../components/Features"
+import InstagramFeed from "../components/InstagramFeed"
+import Testimonials from "../components/Testimonials"
+import Newsletter from "../components/Newsletter"
+import Footer from "../components/Footer"
+import ScrollFadeIn from "../animation/ScrollFadeIn"
+
 const Home = () => (
-  <main className="container py-[80px]">
-    <div className="rounded-[8px] border border-dashed border-line p-10 text-center">
-      <h1 className="font-Display text-[40px] font-semibold text-black dark:text-white">Home</h1>
-      <p className="mt-3 text-[16px] text-subtext">Homepage — hero, deals of the month, new arrivals, promo, brand strip, Instagram, testimonials, newsletter (Figma frame: Homepage)</p>
-    </div>
+  <main className="bg-white">
+    <Navbar />
+    <Hero />
+    <BrandStrip />
+    <ScrollFadeIn>
+      <DealsOfTheMonth />
+    </ScrollFadeIn>
+    <ScrollFadeIn>
+      <NewArrival />
+    </ScrollFadeIn>
+    <ScrollFadeIn>
+      <PromoBanner />
+      <Features />
+    </ScrollFadeIn>
+    <ScrollFadeIn>
+      <InstagramFeed />
+    </ScrollFadeIn>
+    <ScrollFadeIn>
+      <Testimonials />
+    </ScrollFadeIn>
+    <ScrollFadeIn>
+      <Newsletter />
+    </ScrollFadeIn>
+    <Footer />
   </main>
 )
+
 export default Home

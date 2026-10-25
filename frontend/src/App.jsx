@@ -63,7 +63,7 @@ const AppRoutes = ({ canBrowse, currentUser }) => {
 };
 
 const App = () => {
-  const { currentUser, isGuest, loading } = UseUser()
+  const { currentUser, loading } = UseUser()
 
   if (loading) {
     return (
@@ -73,7 +73,9 @@ const App = () => {
     )
   }
 
-  const canBrowse = Boolean(currentUser || isGuest)
+  // TODO: re-enable the auth gate (Boolean(currentUser || isGuest)) once the
+  // login/sign-up pages are built — until then everyone should see the site.
+  const canBrowse = true
 
   return (
     <BrowserRouter>

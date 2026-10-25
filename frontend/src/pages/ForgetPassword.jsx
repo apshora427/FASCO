@@ -1,10 +1,8 @@
-// TODO: build from the Figma frame — Request a password reset code (Figma frame: Forget Password)
-const ForgetPassword = () => (
-  <main className="container py-[80px]">
-    <div className="rounded-[8px] border border-dashed border-line p-10 text-center">
-      <h1 className="font-Display text-[40px] font-semibold text-black dark:text-white">ForgetPassword</h1>
-      <p className="mt-3 text-[16px] text-subtext">Request a password reset code (Figma frame: Forget Password)</p>
-    </div>
-  </main>
-)
+import { Link, useNavigate } from "react-router"
+import AuthLayout, { AuthButton, AuthInput } from "../components/AuthLayout"
+
+const ForgetPassword = () => {
+  const navigate = useNavigate()
+  return <AuthLayout title="Forget Password"><h2 className="auth-section-title font-Display font-semibold">Forget Password</h2><form onSubmit={(event) => { event.preventDefault(); navigate("/confirmation") }} className="mt-6 grid grid-cols-2 gap-x-3 gap-y-1"><AuthInput label="First Name" required /><AuthInput label="Last Name" required /><AuthInput label="Email Address" type="email" required /><AuthInput label="Phone Number" type="tel" /><div className="col-span-2 pt-3"><AuthButton>Send Confirmation Code</AuthButton></div></form><p className="auth-small mt-3 text-center">Already have an account? <Link className="text-[#5182ea]" to="/login">Login</Link></p></AuthLayout>
+}
 export default ForgetPassword

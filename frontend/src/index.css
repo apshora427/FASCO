@@ -1,10 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400..700&family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400..700&family=Poppins:wght@300;400;500;600;700;800&display=swap');
 
 @import "tailwindcss";
 
 @source not "../.freebuff";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+html {
+  scroll-behavior: smooth;
+}
 
 body {
   background-color: #ffffff;
@@ -18,12 +22,12 @@ html.dark body {
   color: #F3F4F6;
 }
 
-/* FASCO designs are drawn at 1920px — the container mirrors that content box. */
+/* The Figma frames place all content on a ~16.3% side margin at every width —
+   the container mirrors that proportion exactly (pure vw, never breaks). */
 @utility container {
   margin-inline: auto;
   width: 100%;
-  max-width: 1920px;
-  padding-inline: clamp(16px, 4.2vw, 80px);
+  padding-inline: 16.3vw;
 }
 
 @theme {
@@ -35,6 +39,7 @@ html.dark body {
   --color-line: #E6E6E6;
   --color-sale: #F86C6C;      /* "Almost Sold Out" */
   --color-star: #F5A623;      /* rating stars */
+  --color-figmagrey: #F7F7F7; /* section backgrounds in the Figma frames */
 
   /* fonts */
   --font-Display: "Playfair Display", serif;
