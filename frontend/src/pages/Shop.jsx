@@ -1,156 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
-import { Link } from "react-router"
+import { Link, useLocation, useNavigate } from "react-router"
+import { LuRefreshCw } from "react-icons/lu"
 import ShopHeader from "../components/ShopHeader"
 import ShopBottom from "../components/ShopBottom"
-
-import product01 from "../assets/reference/shop/product01.jpg"
-import product02 from "../assets/reference/shop/product02.jpg"
-import product03 from "../assets/reference/shop/product03.jpg"
-import product04 from "../assets/reference/shop/product04.jpg"
-import product05 from "../assets/reference/shop/product05.jpg"
-import product06 from "../assets/reference/shop/product06.jpg"
-import product07 from "../assets/reference/shop/product07.jpg"
-import product08 from "../assets/reference/shop/product08.jpg"
-import product09 from "../assets/reference/shop/product09.jpg"
-
-const sizes = ["s", "m", "l", "xl"]
-const filterColors = [
-  "lightRed", "orange", "yellow", "laim", "green", "azure", "darkBlue",
-  "lightAzure", "lightBlue", "lightPurple", "purple", "violet", "pink", "red",
-]
-const brands = ["Minimog", "Retrolie", "Brook", "Learts", "Vagabond", "Abby"]
-const collections = ["All products", "Best sellers", "New arrivals", "Accessories"]
-const tags = ["Fashion", "Hats", "Sandal", "Belt", "Bags", "Snacker", "Denim", "Minimog", "Vagabond", "Sunglasses", "Beachwear"]
-const priceRanges = [
-  { value: "0-50", label: "$0-$50", min: 0, max: 50 },
-  { value: "50-100", label: "$50-$100", min: 50, max: 100 },
-  { value: "100-150", label: "$100-$150", min: 100, max: 150 },
-  { value: "150-200", label: "$150-$200", min: 150, max: 200 },
-  { value: "300-400", label: "$300-$400", min: 300, max: 400 },
-]
-
-const baseProducts = [
-  {
-    id: 1,
-    title: "Rounded Red Hat",
-    price: 8,
-    image: product01,
-    colors: ["yellow", "black"],
-    filterColors: ["yellow", "lightRed"],
-    sizes: ["s", "m"],
-    brand: "Minimog",
-    collection: "Accessories",
-    tags: ["Hats", "Fashion"],
-  },
-  {
-    id: 2,
-    title: "Linen-blend Shirt",
-    price: 17,
-    image: product02,
-    colors: ["lightBlue", "pink"],
-    filterColors: ["lightBlue", "pink"],
-    sizes: ["s", "m", "l"],
-    brand: "Retrolie",
-    collection: "New arrivals",
-    tags: ["Fashion", "Denim"],
-    soldOut: true,
-  },
-  {
-    id: 3,
-    title: "Long-sleeve Coat",
-    price: 106,
-    image: product03,
-    colors: ["gray", "green"],
-    filterColors: ["green", "laim"],
-    sizes: ["m", "l", "xl"],
-    brand: "Brook",
-    collection: "Best sellers",
-    tags: ["Fashion", "Belt"],
-  },
-  {
-    id: 4,
-    title: "Boxy Denim Hat",
-    price: 25,
-    image: product04,
-    colors: ["lightBlue", "darkBlue"],
-    filterColors: ["lightBlue", "darkBlue"],
-    sizes: ["s", "m"],
-    brand: "Learts",
-    collection: "Accessories",
-    tags: ["Hats", "Denim"],
-  },
-  {
-    id: 5,
-    title: "Linen Plain Top",
-    price: 25,
-    image: product05,
-    colors: ["green", "pink"],
-    filterColors: ["green", "pink"],
-    sizes: ["s", "m", "l"],
-    brand: "Vagabond",
-    collection: "Best sellers",
-    tags: ["Fashion", "Bags"],
-  },
-  {
-    id: 6,
-    title: "Oversized T-shirt",
-    price: 11,
-    oldPrice: 14,
-    image: product06,
-    colors: ["pink", "purple", "white"],
-    filterColors: ["pink", "purple", "lightPurple"],
-    sizes: ["s", "m", "l", "xl"],
-    brand: "Abby",
-    collection: "New arrivals",
-    tags: ["Fashion", "Snacker"],
-  },
-  {
-    id: 7,
-    title: "Polarised Sunglasses",
-    price: 18,
-    oldPrice: 21,
-    image: product07,
-    colors: ["black", "brown"],
-    filterColors: ["darkBlue", "orange"],
-    sizes: ["m"],
-    brand: "Minimog",
-    collection: "Accessories",
-    tags: ["Sunglasses", "Beachwear"],
-  },
-  {
-    id: 8,
-    title: "Rockstar Jacket",
-    price: 22,
-    image: product08,
-    colors: ["purple", "azure"],
-    filterColors: ["purple", "azure", "violet"],
-    sizes: ["m", "l"],
-    brand: "Retrolie",
-    collection: "Best sellers",
-    tags: ["Fashion", "Denim", "Vagabond"],
-  },
-  {
-    id: 9,
-    title: "Dotted Black Dress",
-    price: 20,
-    image: product09,
-    colors: ["darkBlue", "black", "lightBlue"],
-    filterColors: ["darkBlue", "lightBlue", "lightAzure"],
-    sizes: ["s", "m", "l"],
-    brand: "Brook",
-    collection: "New arrivals",
-    tags: ["Fashion", "Sandal", "Minimog"],
-  },
-]
-
-const catalogue = Array.from({ length: 3 }, (_, pageIndex) =>
-  baseProducts.map((product) => ({
-    ...product,
-    baseId: product.id,
-    id: `${product.id}-${pageIndex + 1}`,
-  }))
-).flat()
-
+import { getProducts } from "../api/backend"
+import { resolveImage } from "../data/products"
 const money = (value) => `$${Number(value).toFixed(2)}`
 
 const FilterGroup = ({ name, title, open, onToggle, children }) => (
@@ -168,12 +22,21 @@ const FilterGroup = ({ name, title, open, onToggle, children }) => (
 )
 
 const Shop = () => {
-  const [search, setSearch] = useState("")
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [search, setSearch] = useState(() => new URLSearchParams(location.search).get("q") || "")
+  const [catalogue, setCatalogue] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState("")
+  const [reloadKey, setReloadKey] = useState(0)
   const [selectedSizes, setSelectedSizes] = useState([])
   const [selectedColors, setSelectedColors] = useState([])
   const [price, setPrice] = useState("")
+  const [availability, setAvailability] = useState("all")
+  const [sort, setSort] = useState("newest")
+  const [perPage, setPerPage] = useState(9)
   const [selectedBrands, setSelectedBrands] = useState([])
-  const [collection, setCollection] = useState("All products")
+  const [collection, setCollection] = useState(() => new URLSearchParams(location.search).get("collection") || "All products")
   const [selectedTags, setSelectedTags] = useState([])
   const [page, setPage] = useState(1)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -181,10 +44,79 @@ const Shop = () => {
     size: true,
     color: true,
     price: true,
+    availability: true,
     brands: true,
     collections: true,
     tags: true,
   })
+
+  useEffect(() => {
+    setSearch(new URLSearchParams(location.search).get("q") || "")
+    setCollection(new URLSearchParams(location.search).get("collection") || "All products")
+  }, [location.search])
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setLoadError("")
+    getProducts()
+      .then((result) => {
+        if (!active) return
+        if (!Array.isArray(result)) {
+          setLoadError("The product catalogue is unavailable. Check your connection and try again.")
+          return
+        }
+        setCatalogue(result.map((product) => ({
+          ...product,
+          image: resolveImage(product.image),
+          colors: Array.isArray(product.colors) ? product.colors : [],
+          sizes: Array.isArray(product.sizes) ? product.sizes : [],
+        })))
+      })
+      .catch(() => {
+        if (active) setLoadError("The product catalogue is unavailable. Check your connection and try again.")
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => { active = false }
+  }, [reloadKey])
+
+  const brands = useMemo(
+    () => [...new Set(catalogue.map((product) => product.brand).filter(Boolean))].sort(),
+    [catalogue]
+  )
+  const categories = useMemo(
+    () => [...new Set(catalogue.map((product) => product.category).filter(Boolean))].sort(),
+    [catalogue]
+  )
+  const sizes = useMemo(
+    () => [...new Set(catalogue.flatMap((product) => product.sizes))].sort(),
+    [catalogue]
+  )
+  const colors = useMemo(
+    () => [...new Set(catalogue.flatMap((product) => product.colors))].sort(),
+    [catalogue]
+  )
+  const tags = useMemo(
+    () => [...new Set(catalogue.map((product) => product.tag).filter(Boolean))].sort(),
+    [catalogue]
+  )
+  const priceRanges = useMemo(() => {
+    const maxPrice = Math.max(...catalogue.map((product) => product.price), 0)
+    const upperBound = Math.max(50, (Math.floor(maxPrice / 50) + 1) * 50)
+    return Array.from({ length: upperBound / 50 }, (_, index) => {
+      const min = index * 50
+      const max = min + 50
+      return { value: `${min}-${max}`, label: `$${min}–$${max}`, min, max }
+    })
+  }, [catalogue])
+  const collections = [
+    "All products",
+    ...(catalogue.some((product) => product.arrival) ? ["New arrivals"] : []),
+    ...(catalogue.some((product) => product.originalPrice > product.price) ? ["On sale"] : []),
+    ...categories.filter((category) => !["All products", "New arrivals", "On sale"].includes(category)),
+  ]
 
   const toggle = (value, values, setter) =>
     setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value])
@@ -195,23 +127,32 @@ const Shop = () => {
     const query = search.trim().toLowerCase()
     const range = priceRanges.find((item) => item.value === price)
 
-    return catalogue.filter((product) => {
+    const filtered = catalogue.filter((product) => {
       if (query && !product.title.toLowerCase().includes(query)) return false
       if (selectedSizes.length && !product.sizes.some((size) => selectedSizes.includes(size))) return false
-      if (selectedColors.length && !product.filterColors.some((color) => selectedColors.includes(color))) return false
-      if (range && (product.price < range.min || product.price > range.max)) return false
+      if (selectedColors.length && !product.colors.some((color) => selectedColors.includes(color))) return false
+      if (range && (product.price < range.min || product.price >= range.max)) return false
+      if (availability === "in-stock" && product.stock <= 0) return false
+      if (availability === "out-of-stock" && product.stock > 0) return false
       if (selectedBrands.length && !selectedBrands.includes(product.brand)) return false
-      if (collection !== "All products" && product.collection !== collection) return false
-      if (selectedTags.length && !product.tags.some((tag) => selectedTags.includes(tag))) return false
+      if (collection === "New arrivals" && !product.arrival) return false
+      else if (collection === "On sale" && !(product.originalPrice > product.price)) return false
+      else if (!["All products", "New arrivals", "On sale"].includes(collection) && product.category !== collection) return false
+      if (selectedTags.length && !selectedTags.includes(product.tag)) return false
       return true
     })
-  }, [collection, price, search, selectedBrands, selectedColors, selectedSizes, selectedTags])
+    return filtered.sort((left, right) => {
+      if (sort === "price-asc") return left.price - right.price
+      if (sort === "price-desc") return right.price - left.price
+      const byDate = new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime()
+      return byDate || Number(right.id) - Number(left.id)
+    })
+  }, [availability, catalogue, collection, price, priceRanges, search, selectedBrands, selectedColors, selectedSizes, selectedTags, sort])
 
-  const perPage = 9
   const pageCount = Math.max(1, Math.ceil(visibleProducts.length / perPage))
   const pageProducts = visibleProducts.slice((page - 1) * perPage, page * perPage)
 
-  useEffect(() => setPage(1), [collection, price, search, selectedBrands, selectedColors, selectedSizes, selectedTags])
+  useEffect(() => setPage(1), [availability, collection, perPage, price, search, selectedBrands, selectedColors, selectedSizes, selectedTags, sort])
   useEffect(() => {
     if (page > pageCount) setPage(pageCount)
   }, [page, pageCount])
@@ -219,7 +160,10 @@ const Shop = () => {
   return (
     <main className="page _shop">
       <div className="fasco-ref _shop">
-        <ShopHeader onSearch={setSearch} />
+        <ShopHeader onSearch={(query) => {
+          setSearch(query)
+          navigate({ pathname: "/shop", search: query.trim() ? `?q=${encodeURIComponent(query.trim())}` : "" }, { replace: true })
+        }} />
         <div className="page__fashion fashion">
           <div className="fashion__container">
             <div className="fashion__header-content">
@@ -262,7 +206,7 @@ const Shop = () => {
                     </FilterGroup>
 
                     <FilterGroup name="color" title="Colors" open={openSections.color} onToggle={() => toggleSection("color")}>
-                      {filterColors.map((color) => (
+                      {colors.map((color) => (
                         <label className={`color-filter__color-option color-${color}`} key={color}>
                           <input
                             type="checkbox"
@@ -271,7 +215,7 @@ const Shop = () => {
                             checked={selectedColors.includes(color)}
                             onChange={() => toggle(color, selectedColors, setSelectedColors)}
                           />
-                          <span className="color-filter__color-circle" />
+                          <span className="color-filter__color-circle" style={{ backgroundColor: color }} />
                         </label>
                       ))}
                     </FilterGroup>
@@ -287,6 +231,25 @@ const Shop = () => {
                             onChange={() => setPrice(range.value)}
                           />
                           <span className="price-filter__custom-price">{range.label}</span>
+                        </label>
+                      ))}
+                    </FilterGroup>
+
+                    <FilterGroup name="availability" title="Availability" open={openSections.availability} onToggle={() => toggleSection("availability")}>
+                      {[
+                        ["all", "All products"],
+                        ["in-stock", "In stock"],
+                        ["out-of-stock", "Out of stock"],
+                      ].map(([value, label]) => (
+                        <label className="price-filter__option" key={value}>
+                          <input
+                            type="radio"
+                            name="availability"
+                            value={value}
+                            checked={availability === value}
+                            onChange={() => setAvailability(value)}
+                          />
+                          <span className="price-filter__custom-price">{label}</span>
                         </label>
                       ))}
                     </FilterGroup>
@@ -339,25 +302,65 @@ const Shop = () => {
                 </div>
 
                 <div className="catalog__content">
+                  {loading && <p className="catalog__footer" role="status">Loading products…</p>}
+                  {!loading && loadError && (
+                    <div className="catalog__footer" role="alert">
+                      <p>{loadError}</p>
+                      <button type="button" onClick={() => setReloadKey((key) => key + 1)}>
+                        <LuRefreshCw size={15} /> Try again
+                      </button>
+                    </div>
+                  )}
+                  {!loading && !loadError && (
+                  <>
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-[#6a6a6a] dark:text-[#aaa]" role="status">
+                      {visibleProducts.length} product{visibleProducts.length === 1 ? "" : "s"}
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                      <label className="flex items-center gap-2 text-sm text-[#6a6a6a] dark:text-[#aaa]">
+                        Sort
+                        <select
+                          className="rounded border border-[#ddd] bg-white px-2 py-2 text-sm text-black dark:border-[#333] dark:bg-[#141414] dark:text-white"
+                          value={sort}
+                          onChange={(event) => setSort(event.target.value)}
+                        >
+                          <option value="newest">Newest</option>
+                          <option value="price-asc">Price: low to high</option>
+                          <option value="price-desc">Price: high to low</option>
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-[#6a6a6a] dark:text-[#aaa]">
+                        Per page
+                        <select
+                          className="rounded border border-[#ddd] bg-white px-2 py-2 text-sm text-black dark:border-[#333] dark:bg-[#141414] dark:text-white"
+                          value={perPage}
+                          onChange={(event) => setPerPage(Number(event.target.value))}
+                        >
+                          {[9, 18, 36].map((count) => <option key={count} value={count}>{count}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
                   <div className="catalog__products">
                     {pageProducts.map((product) => (
                       <article className="catalog__card card-catalog _active" key={product.id}>
-                        <Link to={`/product/${product.baseId}`} className="card-catalog__image">
+                        <Link to={`/product/${product.id}`} className="card-catalog__image">
                           <img src={product.image} alt="" />
-                          {product.soldOut && <span className="sold-out">Sold Out</span>}
+                          {product.stock <= 0 && <span className="sold-out">Sold Out</span>}
                         </Link>
                         <h3 className="card-catalog__title">
-                          <Link to={`/product/${product.baseId}`}>{product.title}</Link>
+                          <Link to={`/product/${product.id}`}>{product.title}</Link>
                         </h3>
                         <div className="card-catalog__price">
                           {money(product.price)}
-                          {product.oldPrice && <span className="_old-price">{money(product.oldPrice)}</span>}
+                          {product.originalPrice > product.price && <span className="_old-price">{money(product.originalPrice)}</span>}
                         </div>
                         <form className="card-catalog__color-picker">
                           {product.colors.map((color, index) => (
                             <label className={`card-catalog__color-option color-${color}`} key={color}>
-                              <input type="radio" name={`color-${product.id}`} value={color} defaultChecked={index === 0} />
-                              <span className="card-catalog__color-circle" />
+                              <input type="radio" name={`color-${product.id}`} value={color} defaultChecked={index === 0} aria-label={`${product.title} color ${color}`} />
+                              <span className="card-catalog__color-circle" style={{ backgroundColor: color }} />
                             </label>
                           ))}
                         </form>
@@ -368,24 +371,32 @@ const Shop = () => {
                   {visibleProducts.length > 0 ? (
                     <div className="catalog__footer">
                       <div className="catalog__pagging pagging">
+                        <button
+                          type="button"
+                          className="pagging__arrow"
+                          disabled={page === 1}
+                          aria-label="Previous page"
+                          onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                          «
+                        </button>
                         <ul className="pagging__list">
                           {Array.from({ length: pageCount }, (_, index) => (
                             <li className="pagging__item" key={index + 1}>
-                              <a
-                                href={`#page-${index + 1}`}
+                              <button
+                                type="button"
                                 className={`pagging__link ${page === index + 1 ? "_active" : ""}`}
-                                onClick={(event) => {
-                                  event.preventDefault()
-                                  setPage(index + 1)
-                                }}>
+                                aria-current={page === index + 1 ? "page" : undefined}
+                                onClick={() => setPage(index + 1)}>
                                 {index + 1}
-                              </a>
+                              </button>
                             </li>
                           ))}
                         </ul>
                         <button
                           type="button"
                           className="pagging__arrow"
+                          disabled={page === pageCount}
+                          aria-label="Next page"
                           onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>
                           »
                         </button>
@@ -395,6 +406,8 @@ const Shop = () => {
                     <div className="catalog__footer">
                       <p>No products match these filters.</p>
                     </div>
+                  )}
+                  </>
                   )}
                 </div>
               </div>

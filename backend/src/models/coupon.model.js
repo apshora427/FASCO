@@ -10,6 +10,8 @@ const couponSchema = new Schema(
     active: { type: Boolean, default: true },
     description: { type: String, trim: true, default: "" },
     usageCount: { type: Number, default: 0, min: 0 },
+    usageLimit: { type: Number, default: null, min: 1 },
+    minOrderAmount: { type: Number, default: 0, min: 0 },
     expiresAt: { type: Date, default: null },
   },
   { timestamps: true }

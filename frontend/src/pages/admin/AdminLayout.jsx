@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { NavLink, Outlet, useNavigate } from "react-router"
+import { useState } from "react"
+import { Link, NavLink, Outlet, useNavigate } from "react-router"
 import {
   LuLayoutDashboard,
   LuPackage,
@@ -12,10 +12,11 @@ import {
   LuLogOut,
   LuMenu,
   LuX,
+  LuSparkles,
 } from "react-icons/lu"
 import { motion } from "framer-motion"
-import { toast } from "react-toastify"
 import { UseUser } from "../../context/UserContext"
+import SectionMotion from "../../animation/SectionMotion"
 
 const NAV = [
   { to: "/admin", end: true, label: "Overview", icon: LuLayoutDashboard },
@@ -30,19 +31,25 @@ const NAV = [
 const Rail = ({ onNavigate }) => {
   const { currentUser, logOut } = UseUser()
   const navigate = useNavigate()
+  const [loggingOut, setLoggingOut] = useState(false)
 
   const logout = async () => {
-    await logOut()
-    toast.info("Signed out of the dashboard")
-    navigate("/login")
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      await logOut()
+      navigate("/login", { replace: true })
+    } finally {
+      setLoggingOut(false)
+    }
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#0b0b0b] text-white">
+    <div className="admin-rail flex h-full flex-col bg-[#0b0b0b] text-white">
       <div className="flex items-center justify-between px-6 py-6">
-        <NavLink to="/" className="font-Display text-[26px] tracking-[0.14em] text-white">
-          FASCO<span className="text-[#fca120]">.</span>
-        </NavLink>
+        <Link to="/" className="admin-brand font-Display text-[26px] tracking-[0.14em] text-white">
+          FASCO<span>.</span>
+        </Link>
         <button
           type="button"
           onClick={onNavigate}
@@ -52,8 +59,18 @@ const Rail = ({ onNavigate }) => {
         </button>
       </div>
 
-      <p className="px-6 pb-2 text-[11px] font-semibold tracking-[0.2em] text-[#5f5f5f] uppercase">
-        Management
+      <div className="admin-workspace mx-4 mb-5 flex items-center gap-3 rounded-2xl p-3">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#fca120]/15 text-[#fca120]">
+          <LuSparkles size={18} />
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/90">Fasco Studio</p>
+          <p className="mt-0.5 text-[10px] text-white/45">Store management</p>
+        </div>
+      </div>
+
+      <p className="px-6 pb-2 text-[10px] font-semibold tracking-[0.2em] text-[#777] uppercase">
+        Workspace
       </p>
 
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
@@ -66,7 +83,7 @@ const Rail = ({ onNavigate }) => {
             className={({ isActive }) =>
               `group relative mb-1 flex items-center gap-3 rounded-[10px] px-3 py-3 text-[14px] transition-colors ${
                 isActive
-                  ? "bg-white/10 text-white"
+                  ? "admin-nav-active bg-white/10 text-white"
                   : "text-[#8f8f8f] hover:bg-white/5 hover:text-white"
               }`
             }>
@@ -86,7 +103,7 @@ const Rail = ({ onNavigate }) => {
         ))}
       </nav>
 
-      <div className="border-t border-white/10 p-4">
+      <div className="admin-profile border-t border-white/10 p-4">
         <div className="flex items-center gap-3 rounded-[10px] bg-white/5 p-3">
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#fca120] text-[15px] font-bold text-black">
             {(currentUser?.name || "A").charAt(0).toUpperCase()}
@@ -99,8 +116,9 @@ const Rail = ({ onNavigate }) => {
             type="button"
             onClick={logout}
             title="Log out"
+            disabled={loggingOut}
             className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#8f8f8f] transition-colors hover:bg-white/10 hover:text-[#fca120]">
-            <LuLogOut size={16} />
+            {loggingOut ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#777] border-t-[#fca120]" /> : <LuLogOut size={16} />}
           </button>
         </div>
       </div>
@@ -110,15 +128,10 @@ const Rail = ({ onNavigate }) => {
 
 const AdminLayout = () => {
   const { currentUser } = UseUser()
-  const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  useEffect(() => {
-    if (currentUser && currentUser.role !== "admin") navigate("/", { replace: true })
-  }, [currentUser, navigate])
-
   return (
-    <div className="min-h-screen bg-[#f6f6f7] text-[#1a1a1a] dark:bg-[#0d0d0d] dark:text-[#e8e8e8]">
+    <div className="admin-dashboard min-h-screen bg-[#f6f6f7] text-[#1a1a1a] dark:bg-[#0d0d0d] dark:text-[#e8e8e8]">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[248px] lg:block">
         <Rail />
       </aside>
@@ -133,7 +146,7 @@ const AdminLayout = () => {
       )}
 
       <div className="lg:pl-[248px]">
-        <header className="sticky top-0 z-30 flex h-[68px] items-center justify-between gap-4 border-b border-[#e9e9e9] bg-white/85 px-4 backdrop-blur-md dark:border-[#1f1f1f] dark:bg-[#111111]/85 sm:px-6">
+        <header className="admin-topbar sticky top-0 z-30 flex h-[76px] items-center justify-between gap-4 border-b border-[#e9e9e9] bg-white/85 px-4 backdrop-blur-md dark:border-[#1f1f1f] dark:bg-[#111111]/85 sm:px-6">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -143,28 +156,30 @@ const AdminLayout = () => {
               <LuMenu size={18} />
             </button>
             <div>
-              <p className="text-[11px] font-semibold tracking-[0.22em] text-[#9a9a9a] uppercase">
-                Admin Dashboard
+              <p className="flex items-center gap-2 text-[10px] font-semibold tracking-[0.2em] text-[#9a9a9a] uppercase">
+                <span className="admin-live-dot" />
+                Store control
               </p>
-              <p className="text-[15px] font-medium text-black dark:text-white">
-                Run your whole store
+              <p className="text-[14px] font-medium text-black dark:text-white">
+                Good to see you, {currentUser?.name?.split(" ")[0] || "Admin"}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <a
-              href="/"
-              className="hidden items-center gap-2 rounded-[8px] border border-[#e4e4e4] px-3.5 py-2 text-[13px] text-[#484848] transition-colors hover:border-black hover:text-black sm:inline-flex dark:border-[#2c2c2c] dark:text-[#ccc] dark:hover:border-[#fca120] dark:hover:text-[#fca120]">
+            <Link
+              to="/"
+              className="admin-store-link hidden items-center gap-2 rounded-[8px] border border-[#e4e4e4] px-3.5 py-2 text-[12px] font-medium text-[#484848] transition-colors hover:border-black hover:text-black sm:inline-flex dark:border-[#2c2c2c] dark:text-[#ccc] dark:hover:border-[#fca120] dark:hover:text-[#fca120]">
               <LuStore size={15} /> View store
-            </a>
+            </Link>
             <div className="grid h-9 w-9 place-items-center rounded-full bg-black text-[13px] font-bold text-white dark:bg-[#fca120] dark:text-black">
               {(currentUser?.name || "A").charAt(0).toUpperCase()}
             </div>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1400px] px-4 py-7 sm:px-6 lg:px-8">
+        <main className="admin-main mx-auto w-full max-w-[1480px] px-4 py-7 sm:px-6 lg:px-10">
+          <SectionMotion />
           <Outlet />
         </main>
       </div>

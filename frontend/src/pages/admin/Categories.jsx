@@ -1,178 +1,314 @@
+
 import { useEffect, useState } from "react"
-import { LuPen, LuTrashAlt, LuPlus } from "react-icons/lu"
+import { LuPen, LuTrash2, LuPlus, LuCheck, LuX, LuRefreshCw } from "react-icons/lu"
 import { toast } from "react-toastify"
-import { createCategory, getCategories, updateCategory, deleteCategory } from "../../api/backend"
-import { Badge, EmptyState, SectionTitle, Spinner, card, btnDark, ConfirmDialog } from "./adminUi"
+import {
+  createCategory,
+  getCategoryList,
+  updateCategory,
+  deleteCategory,
+} from "../../api/backend"
+import {
+  EmptyState,
+  SectionTitle,
+  Spinner,
+  card,
+  btnDark,
+  ConfirmDialog,
+} from "./adminUi"
 
 export default function Categories() {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [popup, setPopup] = useState(null) // { id, name }
+  const [popup, setPopup] = useState(null)
   const [confirm, setConfirm] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState("")
+
+  const loadCategories = async (silent = false) => {
+    if (silent) setRefreshing(true)
+    else setLoading(true)
+    setLoadError("")
+    try {
+      const res = await getCategoryList()
+
+      if (Array.isArray(res)) {
+        setCategories(res)
+      } else {
+        setLoadError("Could not load categories. Check the backend connection.")
+      }
+    } catch {
+      setLoadError("Could not load categories. Check the backend connection.")
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
-    let alive = true
-    getCategories()
-      .then((res) => {
-        if (!alive) return
-        setCategories(res?.success ? res.category : [])
-      })
-      .finally(() => setLoading(false))
-    return () => { alive = false }
+    loadCategories()
   }, [])
 
-  const refresh = () => {
-    getCategories()
-      .then((res) => setCategories(res?.success ? res.category : []))
-      .catch(() => setCategories([]))
+  const openAdd = () => {
+    setPopup({ id: "", name: "" })
   }
 
-  const startRename = (c) => {
-    // inline edit: open a small input panel for this category
-    setPopup({ id: c._id, name: c.categoryName })
+  const startRename = (category) => {
+    setPopup({
+      id: category._id,
+      name: category.categoryName,
+    })
   }
 
-  const commitRename = async (id, name) => {
-    if (!name.trim()) return
+  const cancelEdit = () => {
+    if (!busy) setPopup(null)
+  }
+
+  const saveCategory = async () => {
+    const name = popup?.name?.trim()
+
+    if (!name) {
+      toast.error("Please enter a category name")
+      return
+    }
+
     setBusy(true)
-    const res = await updateCategory(id, name.trim())
-    setBusy(false)
-    if (res?.success) {
-      toast.success("Category renamed")
+
+    try {
+      const res = popup.id
+        ? await updateCategory(popup.id, name)
+        : await createCategory(name)
+
+      if (!res?.success) {
+        toast.error(
+          res?.message ||
+            (popup.id
+              ? "Could not rename category"
+              : "Could not create category")
+        )
+        return
+      }
+
+      toast.success(
+        popup.id ? "Category renamed" : "Category created"
+      )
+
       setPopup(null)
-      refresh()
-    } else {
-      toast.error(res?.message || "Could not rename")
+      window.dispatchEvent(new Event("fasco:catalog:updated"))
+      await loadCategories(true)
+    } catch {
+      toast.error("Could not connect to the server")
+    } finally {
+      setBusy(false)
     }
   }
 
-  const commitAdd = async () => {
-    if (!popup?.name || popup.name.trim() === "") return
-    setBusy(true)
-    const res = await createCategory(popup.name.trim())
-    setBusy(false)
-    if (res?.success) {
-      toast.success("Category created")
-      setPopup(null)
-      refresh()
-    } else {
-      toast.error(res?.message || "Category already exists")
-    }
-  }
-
-  // unused: the inline panel mutates popup directly
-
-  const remove = async (id, name) => {
+  const remove = (id, name) => {
     setConfirm({ id, name })
   }
+
   const confirmRemove = async () => {
-    if (!confirm) return
-    const res = await deleteCategory(confirm.id)
-    setConfirm(null)
-    if (res?.success) {
+    if (!confirm || busy) return
+
+    setBusy(true)
+
+    try {
+      const res = await deleteCategory(confirm.id)
+
+      if (!res?.success) {
+        toast.error(res?.message || "Could not delete category")
+        return
+      }
+
       toast.success("Category deleted")
-      refresh()
-    } else {
-      toast.error(res?.message || "Could not delete — check the message")
+      setConfirm(null)
+      window.dispatchEvent(new Event("fasco:catalog:updated"))
+      await loadCategories(true)
+    } catch {
+      toast.error("Could not connect to the server")
+    } finally {
+      setBusy(false)
     }
   }
 
   if (loading) return <Spinner />
-  if (categories.length === 0) return <EmptyState title="No categories yet" hint="Create the first category for the store." />
 
   return (
     <div className="space-y-6">
       <SectionTitle
         title="Categories"
         subtitle="The filter pills on the shop page come straight from this list — edit or delete with one click."
-        action={          <button type="button" className={btnDark} onClick={() => setPopup({ id: "", name: "" })}>
-            <LuPlus size={16} /> Add Category
-          </button>
-        }>
-          <LuPlus size={16} />
-        </SectionTitle>
-      <div className="mt-4 flex justify-end">
-        <button type="button" className={btnDark} onClick={commitAdd} disabled={busy}>
-          Add Category
-        </button>
-      </div>
-      <div className="mt-4 flex justify-end">
-        <button type="button" className={btnDark} onClick={commitAdd} disabled={busy}>
-          Add Category
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {categories.map((c) => (
-          <div key={c._id} className={card}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#fca120]/15 text-[#fca120]">
-                  <LuPen size={17} />
-                </div>
-                <span className="font-semibold text-[#1a1a1a] dark:text-white">{c.categoryName}</span>
-              </div>
-              <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => startRename(c)}
-                  className="grid h-8 w-8 place-items-center rounded-lg text-[#8a8a8a] transition-colors hover:bg-white/10 hover:text-[#fca120] dark:hover:bg-[#242424]">
-                  <LuPen size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => remove(c._id, c.categoryName)}
-                  className="grid h-8 w-8 place-items-center rounded-lg text-[#8a8a8a] transition-colors hover:bg-[#f87171]/15 hover:text-[#f87171] dark:hover:bg-[#f87171]/20">
-                  <FaTrashAlt size={15} />
-                </button>
-              </div>
-            </div>
-
-            {/* inline edit panel inside the card */}
-            {popup?._id === c._id && (
-              <div className="mt-3 border-t border-[#ececec] pt-3 dark:border-[#262626]">
-                <div className="flex items-center gap-2">
-            <input
-              className="rounded-[5px] border border-[#e2e2e2] bg-white px-2 py-1 text-[13px] text-[#1a1a1a] outline-none focus:border-black dark:border-[#333] dark:bg-[#141414] dark:text-white"
-                    autoFocus
-                    value={popup.name}
-                    onChange={(e) => setPopup({ ...popup, name: e.target.value })}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitRename(popup.id, popup.name)
-                      if (e.key === "Escape") setPopup(null)
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => commitRename(popup.id, popup.name)}
-                    className="text-[13px] font-semibold text-black dark:text-white"
-                    disabled={busy}>
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPopup(null)}
-                    className="text-[13px] text-[#9a9a9a] hover:underline"
-                    disabled={busy}>
-                    ✕
-                  </button>
-                </div>
-              </div>
-            )}
+        action={
+          <div className="flex gap-2">
+            <button type="button" className={btnDark} onClick={() => loadCategories(true)} disabled={refreshing}>
+              <LuRefreshCw size={15} className={refreshing ? "animate-spin" : ""} /> Refresh
+            </button>
+            <button type="button" className={btnDark} onClick={openAdd}>
+              <LuPlus size={16} /> Add Category
+            </button>
           </div>
-        ))}
-      </div>
+        }
+      />
+
+      {loadError ? (
+        <div className={`${card} p-6 text-center`}>
+          <p className="text-sm text-[#b91c1c]">{loadError}</p>
+          <button type="button" className={`${btnDark} mt-4`} onClick={() => loadCategories(true)} disabled={refreshing}>
+            Retry
+          </button>
+        </div>
+      ) : categories.length === 0 ? (
+        <EmptyState
+          title="No categories yet"
+          hint="Create the first category for the store."
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {categories.map((category) => (
+            <div key={category._id} className={card}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#fca120]/15 text-[#fca120]">
+                    <LuPen size={17} />
+                  </div>
+
+                  <span className="break-words font-semibold text-[#1a1a1a] dark:text-white">
+                    {category.categoryName}
+                  </span>
+                </div>
+
+                <div className="flex shrink-0 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => startRename(category)}
+                    aria-label={`Rename ${category.categoryName}`}
+                    className="grid h-8 w-8 place-items-center rounded-lg text-[#8a8a8a] transition-colors hover:bg-white/10 hover:text-[#fca120] dark:hover:bg-[#242424]"
+                  >
+                    <LuPen size={15} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      remove(category._id, category.categoryName)
+                    }
+                    aria-label={`Delete ${category.categoryName}`}
+                    className="grid h-8 w-8 place-items-center rounded-lg text-[#8a8a8a] transition-colors hover:bg-[#f87171]/15 hover:text-[#f87171] dark:hover:bg-[#f87171]/20"
+                  >
+                    <LuTrash2 size={15} />
+                  </button>
+                </div>
+              </div>
+
+              {popup?.id === category._id && (
+                <div className="mt-3 border-t border-[#ececec] pt-3 dark:border-[#262626]">
+                  <CategoryNameForm
+                    value={popup.name}
+                    onChange={(name) =>
+                      setPopup((current) => ({
+                        ...current,
+                        name,
+                      }))
+                    }
+                    onSave={saveCategory}
+                    onCancel={cancelEdit}
+                    busy={busy}
+                    editing
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {popup?.id === "" && (
+        <div className={`${card} space-y-4`}>
+          <h3 className="font-semibold text-[#1a1a1a] dark:text-white">
+            Add a new category
+          </h3>
+
+          <CategoryNameForm
+            value={popup.name}
+            onChange={(name) =>
+              setPopup((current) => ({
+                ...current,
+                name,
+              }))
+            }
+            onSave={saveCategory}
+            onCancel={cancelEdit}
+            busy={busy}
+          />
+        </div>
+      )}
 
       <ConfirmDialog
         open={!!confirm}
         title="Delete category?"
-        message="This won’t affect products in this category — they’ll just drop into the default channel. Type the category name to confirm:"
+        message={
+          confirm
+            ? `Are you sure you want to delete "${confirm.name}"? This may affect how products in this category appear in the store.`
+            : ""
+        }
         onConfirm={confirmRemove}
-        onCancel={() => setConfirm(null)}
+        onCancel={() => {
+          if (!busy) setConfirm(null)
+        }}
         busy={busy}
       />
     </div>
+  )
+}
+
+function CategoryNameForm({
+  value,
+  onChange,
+  onSave,
+  onCancel,
+  busy,
+  editing = false,
+}) {
+  return (
+    <form
+      className="flex flex-wrap items-center gap-2"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSave()
+      }}
+    >
+      <input
+        className="min-w-0 flex-1 rounded-[5px] border border-[#e2e2e2] bg-white px-3 py-2 text-[13px] text-[#1a1a1a] outline-none focus:border-black dark:border-[#333] dark:bg-[#141414] dark:text-white"
+        autoFocus
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") onCancel()
+        }}
+        placeholder="Enter category name"
+        maxLength={80}
+        disabled={busy}
+      />
+
+      <button
+        type="submit"
+        disabled={busy || !value.trim()}
+        className="inline-flex items-center gap-1 rounded-lg bg-black px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black"
+      >
+        <LuCheck size={15} />
+        {busy ? "Saving..." : editing ? "Save" : "Create"}
+      </button>
+
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={busy}
+        aria-label="Cancel"
+        className="grid h-9 w-9 place-items-center rounded-lg text-[#8a8a8a] hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/10"
+      >
+        <LuX size={16} />
+      </button>
+    </form>
   )
 }

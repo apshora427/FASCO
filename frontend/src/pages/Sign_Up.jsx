@@ -1,173 +1,224 @@
-// TWEAK 1 — sign-up: a failed backend call (duplicate email, weak password)
-// has to leave the form populated so the user can fix it.
-import { useState } from "react"
-import { Link, useNavigate } from "react-router"
-import { motion } from "framer-motion"
-import { toast } from "react-toastify"
-import {
-  LuEye, LuEyeOff, LuMail, LuPhone, LuUser, LuLock, LuArrowRight, LuShip,
-} from "react-icons/lu"
-import { UseUser } from "../context/UserContext"
 
-const pageTransition = {
-  initial: { opacity: 0, y: 18 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
-}
+import { useState } from "react"
+import { Link, useLocation, useNavigate } from "react-router"
+import { toast } from "react-toastify"
+import AuthLayout from "../components/AuthLayout"
+import GoogleAuthButton from "../components/GoogleAuthButton"
+import { UseUser } from "../context/UserContext"
+import signupImage from "../assets/reference/auth/signup.jpg"
+import emailIcon from "../assets/reference/auth/email.svg"
 
 export default function Sign_Up() {
-  const [name, setName] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [phone, setPhone] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const { addUser: register } = UseUser()
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  const { addUser: register, googleSignIn } = UseUser()
+  const location = useLocation()
   const navigate = useNavigate()
 
-  // on submit: any backend failure is a *message*, never a redirect. The
-  // entered values stay in the fields and the global toast carries the reason.
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!name || !email || !password) {
-      toast.error("Please fill up the form fully to sign up in FASCO")
+  const requestedLocation = location.state?.from
+  const requestedPath = typeof requestedLocation === "string"
+    ? requestedLocation
+    : requestedLocation?.pathname
+  const destination = requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
+    ? requestedLocation
+    : "/"
+
+  async function handleGoogleCredential(credential) {
+    setBusy(true)
+    try {
+      const user = await googleSignIn(credential)
+      navigate(user.role === "admin" ? "/admin" : destination, { replace: true })
+    } catch {
+      // UserContext displays the authentication error.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+
+    const name = `${firstName.trim()} ${lastName.trim()}`.trim()
+
+    if (!firstName.trim() || !lastName.trim() || !email.trim() ||
+        !phone.trim() || !password || !confirmPassword) {
+      toast.error("Please complete all fields.")
       return
     }
 
-    setSubmitting(true)
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match.")
+      return
+    }
+
+    setBusy(true)
+
     try {
-      await register(name, email, password, phone)
-      navigate("/confirmation", { replace: true })
+      const result = await register(name, email.trim(), password, phone.trim())
+
+      navigate("/confirmation", {
+        replace: true,
+        state: {
+          flow: "signup",
+          email: email.trim(),
+          from: requestedLocation,
+        },
+      })
+
+      if (result?.devCode) {
+        toast.info(`Development confirmation code: ${result.devCode}`)
+      }
+    } catch {
+      // UserContext displays the backend error.
+      // Keep the entered fields so the user can correct them.
     } finally {
-      setSubmitting(false)
+      setBusy(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f6f6f7] px-4">
-      <motion.div {...pageTransition} className="w-full max-w-[420px] rounded-[20px] border border-[#e6e6e6] bg-white p-8 shadow-[0_20px_56px rgba(0,0,0,0.07)] dark:border-[#262626] dark:bg-[#161616] dark:text-white">
-        <div className="mb-7 flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-[10px] bg-[#fca120] text-black">
-            <LuShip size={18} />
-          </div>
-          <span className="font-Display text-[22px] tracking-[0.14em] text-black dark:text-white">
-            FASCO<span className="text-[#fca120]">.</span>
-          </span>
-        </div>
+    <AuthLayout variant="signup" image={signupImage}>
+      <div className="sign__content sign-content _signup">
+        <h1 className="sign-content__title">Create Account</h1>
+      </div>
 
-        <h1 className="font-Display text-[28px] leading-[1.1] text-black dark:text-white">
-          Create account
-        </h1>
-        <p className="mt-2 text-[14px] leading-relaxed text-[#8a8a8a] dark:text-[#a5a5a5]">
-          Fill in the details below and we will send you a confirmation code
-        </p>
-
-        <form className="mt-7 space-y-5" onSubmit={handleSubmit}>
-          <label className="block">
-            <span className="mb-1.5 block text-[13px] font-medium text-[#5a5a5a] dark:text-[#a5a5a5]">
-              Name
-            </span>
-            <div className="relative">
-              <LuUser size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#aaaa]" />
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                type="text"
-                autoComplete="name"
-                placeholder="Your name"
-                className="inputCls w-full !pl-9"
-                disabled={submitting}
-              />
-            </div>
-          </label>
-
-          <label className="block">
-            <span className="mb-1.5 block text-[13px] font-medium text-[#5a5a5a] dark:text-[#a5a5a5]">
-              Email
-            </span>
-            <div className="relative">
-              <LuMail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#aaaa]" />
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                className="inputCls w-full !pl-9"
-                disabled={submitting}
-              />
-            </div>
-          </label>
-
-          <label className="block">
-            <span className="mb-1.5 block text-[13px] font-medium text-[#5a5a5a] dark:text-[#a5a5a5]">
-              Password
-            </span>
-            <div className="relative">
-              <LuLock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#aaaa]" />
-              <input
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
-                placeholder="Create a strong password"
-                className="inputCls w-full !pl-9"
-                disabled={submitting}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 grid h-6 w-6 place-items-center rounded hover:text-[#484848] dark:hover:text-[#fca120]"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <LuEyeOff size={15} /> : <LuEye size={15} />}
-              </button>
-            </div>
-          </label>
-
-          <label className="block">
-            <span className="mb-1.5 block text-[13px] font-medium text-[#5a5a5a] dark:text-[#a5a5a5]">
-              Phone (optional)
-            </span>
-            <div className="relative">
-              <LuPhone size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#aaaa]" />
-              <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                type="tel"
-                autoComplete="tel"
-                placeholder="+1 234 567 890"
-                className="inputCls w-full !pl-9"
-                disabled={submitting}
-              />
-            </div>
-          </label>
+      <div className="sign__signup signup">
+        <div className="mb-5 grid grid-cols-2 gap-3">
+          <GoogleAuthButton
+            label="Sign up with Google"
+            onCredential={handleGoogleCredential}
+          />
 
           <button
-            type="submit"
-            className="btnDark w-full mt-2"
-            disabled={submitting}
+            type="button"
+            onClick={() =>
+              document.getElementById("signup-first-name")?.focus()
+            }
+            className="flex min-h-9 items-center justify-center gap-2 rounded border border-[#dedfe1] px-2 text-[10px] text-[#333] transition hover:border-[#999]"
           >
-            {submitting ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                Sending…
-              </>
-            ) : (
-              <>
-                Sign up <LuArrowRight size={16} />
-              </>
-            )}
+            <img src={emailIcon} alt="" className="h-3.5 w-3.5" />
+            <span>Sign up with Email</span>
           </button>
-        </form>
+        </div>
 
-        <p className="mt-7 text-center text-[13px] text-[#8a8a8a] dark:text-[#a5a5a5]">
-          Already have an account?{" "}
-          <Link to="/login" className="font-medium text-[#fca120] hover:underline">
-            Sign in
-          </Link>
-        </p>
-      </motion.div>
-    </div>
+        <div className="mb-5 flex items-center gap-3 text-[11px] text-[#777]">
+          <span className="h-px flex-1 bg-[#dedfe1]" />
+          <span>OR</span>
+          <span className="h-px flex-1 bg-[#dedfe1]" />
+        </div>
+
+        <form
+          className="form-signup"
+          onSubmit={handleSubmit}
+          noValidate
+        >
+          <div className="form-signup__input-block">
+            <div className="form-signup__item">
+              <input
+                id="signup-first-name"
+                className="form-signup__input w-full"
+                type="text"
+                placeholder="First Name"
+                autoComplete="given-name"
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+                disabled={busy}
+                required
+              />
+            </div>
+
+            <div className="form-signup__item">
+              <input
+                className="form-signup__input w-full"
+                type="text"
+                placeholder="Last Name"
+                autoComplete="family-name"
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+                disabled={busy}
+                required
+              />
+            </div>
+
+            <div className="form-signup__item">
+              <input
+                className="form-signup__input w-full"
+                type="email"
+                placeholder="Email Address"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                disabled={busy}
+                required
+              />
+            </div>
+
+            <div className="form-signup__item">
+              <input
+                className="form-signup__input w-full"
+                type="tel"
+                placeholder="Phone Number"
+                autoComplete="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                disabled={busy}
+                required
+              />
+            </div>
+
+            <div className="form-signup__item">
+              <input
+                className="form-signup__input w-full"
+                type="password"
+                placeholder="Password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                disabled={busy}
+                required
+              />
+            </div>
+
+            <div className="form-signup__item">
+              <input
+                className="form-signup__input w-full"
+                type="password"
+                placeholder="Confirm Password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event) =>
+                  setConfirmPassword(event.target.value)
+                }
+                disabled={busy}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-signup__item _button">
+            <button
+              type="submit"
+              disabled={busy}
+              className="form-signup__button button sign-button w-full disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy ? "Creating Account…" : "Create Account"}
+            </button>
+          </div>
+
+          <div className="form-signup__item">
+            <p className="form-signup__link text-center">
+              Already have an account?{" "}
+              <Link to="/login">Login</Link>
+            </p>
+          </div>
+        </form>
+      </div>
+    </AuthLayout>
   )
 }

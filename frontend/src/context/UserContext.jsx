@@ -4,14 +4,16 @@ import {
   registerUser,
   verifyEmail,
   loginUser,
+  googleLoginUser,
+  logoutUser,
   fetchCurrentUser,
-  setAuthToken,
   getAuthToken,
+  setAuthToken,
 } from "../api/backend"
 
 // Auth layer backed by the Express backend (src/controllers/auth.controller.js).
 // Exposes the same surface the pages were written against — currentUser,
-// isGuest, loading, addUser, LogInUser, googleSignUp, enterGuestMode, logOut —
+// isGuest, loading, addUser, LogInUser, googleSignIn, enterGuestMode, logOut —
 // plus isAdmin/verifyCode helpers for the confirmation flow and dashboard.
 export const UserContext = createContext()
 
@@ -19,18 +21,28 @@ const SESSION_KEY = "fasco_session"
 
 const readJSON = (key, fallback) => {
   try {
-    const raw = localStorage.getItem(key)
+    const raw = localStorage.getItem(key) || sessionStorage.getItem(key)
     return raw ? JSON.parse(raw) : fallback
   } catch {
     return fallback
   }
 }
 
-const writeJSON = (key, value) => {
+const clearSession = () => {
   try {
-    localStorage.setItem(key, JSON.stringify(value))
+    localStorage.removeItem(SESSION_KEY)
+    sessionStorage.removeItem(SESSION_KEY)
   } catch {
-    // storage unavailable — keep working in memory
+    // storage unavailable — in-memory authentication still works
+  }
+}
+
+const writeGuestSession = () => {
+  clearSession()
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ guest: true }))
+  } catch {
+    // storage unavailable — guest mode lasts for this page load
   }
 }
 
@@ -43,30 +55,37 @@ const UserProvider = ({ children }) => {
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?])^[a-zA-Z\d!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]{6,12}$/
   const nameRegex = /^[a-zA-Z]+(?:[-'\s][a-zA-Z]+)*$/
 
-  // boot: restore the guest flag, re-validate a stored token /me, and keep the
-  // raw access token in localStorage so a page refresh keeps the admin session
+  // Restore a saved guest session and derive signed-in identity from /me.
   useEffect(() => {
     const session = readJSON(SESSION_KEY, null)
     if (session?.guest && !session?.user) setIsGuest(true)
 
     const token = getAuthToken()
     if (!token) {
+      if (session?.user) clearSession()
       setLoading(false)
       return
     }
 
     let alive = true
-    fetchCurrentUser().then((res) => {
-      if (!alive) return
-      if (res?.success && res.user) {
-        setCurrentUser(res.user)
-        setIsGuest(false)
-        writeJSON(SESSION_KEY, { user: res.user, guest: false })
-      } else {
-        setAuthToken("") // stale/invalid token — sign out silently
-      }
-      setLoading(false)
-    })
+    fetchCurrentUser()
+      .then((res) => {
+        if (!alive) return
+        if (res?.success && res.user && ["user", "admin"].includes(res.user.role)) {
+          setCurrentUser(res.user)
+          setIsGuest(false)
+          clearSession()
+        } else if (res) {
+          setAuthToken("")
+          clearSession()
+          setCurrentUser(null)
+          setIsGuest(false)
+        }
+        setLoading(false)
+      })
+      .catch(() => {
+        if (alive) setLoading(false)
+      })
     return () => {
       alive = false
     }
@@ -77,11 +96,17 @@ const UserProvider = ({ children }) => {
     type === "error" && toast.error(massage)
   }
 
-  const persist = (user, guest, token) => {
+  const persist = (user, guest, token, rememberMe = false) => {
     setCurrentUser(user)
     setIsGuest(guest)
-    writeJSON(SESSION_KEY, { user, guest })
-    if (token) setAuthToken(token)
+    if (user && token) {
+      clearSession()
+      setAuthToken(token, rememberMe)
+    } else {
+      setAuthToken("")
+      if (guest) writeGuestSession()
+      else clearSession()
+    }
   }
 
   // Register an account. Does NOT sign the user in — the Figma flow sends the
@@ -114,8 +139,8 @@ const UserProvider = ({ children }) => {
   }
 
   // Verify the 6-digit code from the Confirmation screen.
-  async function confirmCode(code) {
-    const res = await verifyEmail(code)
+  async function confirmCode(email, code) {
+    const res = await verifyEmail(email, code)
     if (res?.success) {
       toastify("success", res.message || "Email verified")
       return Promise.resolve(res)
@@ -124,16 +149,16 @@ const UserProvider = ({ children }) => {
     return Promise.reject(new Error("invalid-code"))
   }
 
-  async function LogInUser(email, password) {
+  async function LogInUser(email, password, rememberMe = false, role = "user") {
     if (!email || !password) {
       toastify("error", "Please enter your email and password")
       return Promise.reject(new Error("missing fields"))
     }
 
-    const res = await loginUser({ email, password })
+    const res = await loginUser({ email, password, role })
     if (res?.success && res.userInfo) {
       const { accesstoken, ...user } = res.userInfo
-      persist(user, false, accesstoken)
+      persist(user, false, accesstoken, rememberMe)
       toastify("success", res.message || "Successfully logged in")
       return Promise.resolve(user)
     }
@@ -141,12 +166,16 @@ const UserProvider = ({ children }) => {
     return Promise.reject(new Error("invalid credentials"))
   }
 
-  function googleSignUp() {
-    // TODO: wire the real provider (OAuth client id + backend exchange) —
-    // no provider is configured for this project yet.
-    persist({ name: "FASCO Member", email: "member@fasco.dev", role: "user" }, false)
-    toastify("success", "Successfully signed in with Google")
-    return Promise.resolve({ name: "FASCO Member", email: "member@fasco.dev", role: "user" })
+  async function googleSignIn(credential, rememberMe = false, role = "user") {
+    const res = await googleLoginUser(credential, role)
+    if (res?.success && res.userInfo) {
+      const { accesstoken, ...user } = res.userInfo
+      persist(user, false, accesstoken, rememberMe)
+      toastify("success", res.message || "Successfully signed in with Google")
+      return user
+    }
+    toastify("error", res?.message || "Google sign-in failed")
+    throw new Error("google-sign-in-failed")
   }
 
   function enterGuestMode() {
@@ -154,11 +183,24 @@ const UserProvider = ({ children }) => {
     toastify("success", "Browsing as a guest")
   }
 
-  function logOut() {
-    setAuthToken("")
-    persist(null, false)
-    toastify("success", "Logged out")
-    return Promise.resolve()
+  async function logOut() {
+    const result = await logoutUser()
+    persist(null, false, "")
+    if (result?.success) toastify("success", result.message || "Logged out")
+    else toastify("error", "Signed out on this device; the server session could not be revoked.")
+  }
+
+  function applyAccountUpdate(user, token) {
+    if (user) setCurrentUser(user)
+    if (token) {
+      let rememberMe = false
+      try {
+        rememberMe = localStorage.getItem("fasco_token") === getAuthToken()
+      } catch {
+        // Keep the updated token for this page session if storage is unavailable.
+      }
+      setAuthToken(token, rememberMe)
+    }
   }
 
   const isAdmin = currentUser?.role === "admin"
@@ -169,8 +211,14 @@ const UserProvider = ({ children }) => {
     if (!currentUser) return
     const t = setInterval(async () => {
       const res = await fetchCurrentUser()
-      if (res?.success && res.user) setCurrentUser(res.user)
-      else if (!res?.success && getAuthToken()) setAuthToken("")
+      if (res?.success && res.user && ["user", "admin"].includes(res.user.role)) {
+        setCurrentUser(res.user)
+      } else if (res && getAuthToken()) {
+        setAuthToken("")
+        clearSession()
+        setCurrentUser(null)
+        setIsGuest(false)
+      }
     }, 60_000)
     return () => clearInterval(t)
   }, [currentUser])
@@ -185,9 +233,10 @@ const UserProvider = ({ children }) => {
         addUser,
         confirmCode,
         LogInUser,
-        googleSignUp,
+        googleSignIn,
         enterGuestMode,
         logOut,
+        applyAccountUpdate,
       }}>
       {children}
     </UserContext.Provider>

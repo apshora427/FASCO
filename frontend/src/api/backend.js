@@ -3,19 +3,23 @@
 // Falls back to the local dev server (server.js default port 8000).
 const BASE_URL = import.meta.env.VITE_AUTH_URL || "http://localhost:8000/api/v1"
 
-// The access token from POST /login lives in localStorage so a refresh keeps
-// the session; every authenticated call attaches it automatically.
+// Persistent sign-ins use localStorage; temporary sign-ins use sessionStorage.
 const TOKEN_KEY = "fasco_token"
 export const getAuthToken = () => {
   try {
-    return localStorage.getItem(TOKEN_KEY) || ""
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || ""
   } catch {
     return ""
   }
 }
-export const setAuthToken = (token) => {
+export const setAuthToken = (token, rememberMe = true) => {
   try {
-    token ? localStorage.setItem(TOKEN_KEY, token) : localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(TOKEN_KEY)
+    sessionStorage.removeItem(TOKEN_KEY)
+    if (token) {
+      const storage = rememberMe ? localStorage : sessionStorage
+      storage.setItem(TOKEN_KEY, token)
+    }
   } catch {
     // storage unavailable — the in-memory session still works this page load
   }
@@ -23,11 +27,18 @@ export const setAuthToken = (token) => {
 
 const request = async (path, options = {}) => {
   const { headers, ...rest } = options
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json", ...(headers || {}) },
-    ...rest,
-  })
-  return res.json()
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 12000)
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      headers: { "Content-Type": "application/json", ...(headers || {}) },
+      ...rest,
+      signal: rest.signal || controller.signal,
+    })
+    return await res.json()
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 // Same request with the admin/user token attached (raw token, backend convention).
@@ -54,10 +65,25 @@ export const registerUser = async ({ name, email, password, phone }) => {
   }
 }
 
-// POST /verify/:token — the 6-digit confirmation code from the email.
-export const verifyEmail = async (token) => {
+// POST /verify — keep one-time codes out of URL histories and access logs.
+export const verifyEmail = async (email, code) => {
   try {
-    return await request(`/verify/${encodeURIComponent(token)}`, { method: "POST" })
+    return await request("/verify", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    })
+  } catch {
+    return null
+  }
+}
+
+// POST /verify-reset-code — validates a reset code without consuming it.
+export const verifyResetCode = async (email, code) => {
+  try {
+    return await request("/verify-reset-code", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    })
   } catch {
     return null
   }
@@ -76,12 +102,33 @@ export const resendCode = async (email) => {
 }
 
 // POST /login — returns { userInfo: { …, role, accesstoken } } or an error body.
-export const loginUser = async ({ email, password }) => {
+export const loginUser = async ({ email, password, role }) => {
   try {
     return await request("/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, role }),
     })
+  } catch {
+    return null
+  }
+}
+
+// POST /google — exchange Google's verified ID credential for a FASCO session.
+export const googleLoginUser = async (credential, role = "user") => {
+  try {
+    return await request("/google", {
+      method: "POST",
+      body: JSON.stringify({ credential, role }),
+    })
+  } catch {
+    return null
+  }
+}
+
+// POST /logout — invalidates the current backend token before clearing it locally.
+export const logoutUser = async () => {
+  try {
+    return await authed("/logout", { method: "POST" })
   } catch {
     return null
   }
@@ -91,6 +138,63 @@ export const loginUser = async ({ email, password }) => {
 export const fetchCurrentUser = async () => {
   try {
     return await authed("/me")
+  } catch {
+    return null
+  }
+}
+
+// PATCH /profile — updates the authenticated account's name, phone, and photo.
+export const updateProfile = async (fields) => {
+  try {
+    return await authed("/profile", {
+      method: "PATCH",
+      body: JSON.stringify(fields),
+    })
+  } catch {
+    return null
+  }
+}
+
+// POST /profile/email/request — sends a one-time code to the new address.
+export const requestEmailChange = async (email) => {
+  try {
+    return await authed("/profile/email/request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    })
+  } catch {
+    return null
+  }
+}
+
+// POST /profile/email/verify — confirms a pending address change.
+export const verifyEmailChange = async (code) => {
+  try {
+    return await authed("/profile/email/verify", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    })
+  } catch {
+    return null
+  }
+}
+
+// POST /profile/password — changes a password after checking the current one.
+export const changePassword = async (currentPassword, newPassword, confirmPassword) => {
+  try {
+    return await authed("/profile/password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+    })
+  } catch {
+    return null
+  }
+}
+
+// GET /my-orders — returns only orders linked to the signed-in customer.
+export const getMyOrders = async () => {
+  try {
+    return await authed("/my-orders")
   } catch {
     return null
   }
@@ -108,12 +212,12 @@ export const forgotPassword = async (email) => {
   }
 }
 
-// POST /setnew-password/:token — saves the new password after the emailed code.
-export const setNewPassword = async (token, newPassword, confirmPassword) => {
+// POST /setnew-password — saves the new password after the emailed code.
+export const setNewPassword = async (email, code, newPassword, confirmPassword) => {
   try {
-    return await request(`/setnew-password/${encodeURIComponent(token)}`, {
+    return await request("/setnew-password", {
       method: "POST",
-      body: JSON.stringify({ newPassword, confirmPassword }),
+      body: JSON.stringify({ email, code, newPassword, confirmPassword }),
     })
   } catch {
     return null
@@ -123,16 +227,16 @@ export const setNewPassword = async (token, newPassword, confirmPassword) => {
 /* -------------------------------------------------------------- categories */
 
 // GET /category — returns the list of category names (strings).
-// Resolves to [] when the backend is unreachable or the DB has none.
+// Resolves to [] when the DB is empty, or null when the backend is unavailable.
 export const getCategories = async () => {
   try {
     const data = await request("/category")
     if (data?.success && Array.isArray(data.category)) {
       return data.category.map((c) => c.categoryName).filter(Boolean)
     }
-    return []
+    return null
   } catch {
-    return []
+    return null
   }
 }
 
@@ -189,10 +293,10 @@ export const deleteCategory = async (id) => {
 // POST /product/create — creates a product (requires an admin JWT in the Authorization header).
 export const createProduct = async ({ title, token, ...fields }) => {
   try {
-    return await request("/product/create", {
+    return await authed("/product/create", {
       method: "POST",
       body: JSON.stringify({ title, ...fields }),
-      headers: token ? { Authorization: token } : {},
+      ...(token ? { headers: { Authorization: token } } : {}),
     })
   } catch {
     return null
@@ -217,6 +321,27 @@ export const deleteProduct = async (id) => {
   }
 }
 
+export const uploadProductImage = async (file) => {
+  const token = getAuthToken()
+  const formData = new FormData()
+  formData.append("image", file)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000)
+  try {
+    const response = await fetch(`${BASE_URL}/product/upload-image`, {
+      method: "POST",
+      headers: token ? { Authorization: token } : {},
+      body: formData,
+      signal: controller.signal,
+    })
+    return await response.json()
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 // GET /product — full product catalogue (optionally filtered by category).
 // Returns the product array, or null when the backend is unreachable
 // (callers keep their local fallback data in that case).
@@ -228,6 +353,44 @@ export const getProducts = async (category) => {
       return data.products
     }
     return null
+  } catch {
+    return null
+  }
+}
+
+export const getProductReviews = async (id) => {
+  try {
+    return await request(`/product/${id}/reviews`)
+  } catch {
+    return null
+  }
+}
+
+export const createProductReview = async (id, fields) => {
+  try {
+    return await authed(`/product/${id}/reviews`, {
+      method: "POST",
+      body: JSON.stringify(fields),
+    })
+  } catch {
+    return null
+  }
+}
+
+export const getWishlist = async () => {
+  try {
+    return await authed("/wishlist")
+  } catch {
+    return null
+  }
+}
+
+export const saveWishlist = async (wishlistIds) => {
+  try {
+    return await authed("/wishlist", {
+      method: "PUT",
+      body: JSON.stringify({ wishlistIds }),
+    })
   } catch {
     return null
   }
@@ -247,10 +410,20 @@ export const getProduct = async (id) => {
 
 /* ------------------------------------------------------------------ orders */
 
-// POST /order — checkout writes the cart (server recomputes all prices).
-export const placeOrder = async (payload) => {
+export const getPaymentConfig = async () => {
   try {
-    return await authed("/order", { method: "POST", body: JSON.stringify(payload) })
+    return await request("/payment/config")
+  } catch {
+    return null
+  }
+}
+
+export const createCheckoutSession = async (payload) => {
+  try {
+    return await authed("/payment/checkout-session", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    })
   } catch {
     return null
   }
@@ -399,8 +572,11 @@ export default {
   getCategoryList,
   registerUser,
   verifyEmail,
+  verifyResetCode,
   resendCode,
   loginUser,
+  googleLoginUser,
+  logoutUser,
   fetchCurrentUser,
   forgotPassword,
   setNewPassword,
@@ -411,8 +587,14 @@ export default {
   updateProduct,
   deleteProduct,
   getProducts,
+  getProductReviews,
+  createProductReview,
   getProduct,
-  placeOrder,
+  getWishlist,
+  saveWishlist,
+  uploadProductImage,
+  getPaymentConfig,
+  createCheckoutSession,
   getOrders,
   updateOrderStatus,
   validateCoupon,

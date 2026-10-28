@@ -7,6 +7,8 @@ import { orderRouter } from "./order.routes.js";
 import { couponRouter } from "./coupon.routes.js";
 import { subscriberRouter } from "./subscriber.routes.js";
 import { dashboardRouter } from "./dashboard.routes.js";
+import { wishlistRouter } from "./wishlist.routes.js";
+import { paymentRouter } from "./payment.routes.js";
 
 // Every API feature gets its own router + controller and is mounted here:
 //   authRouter       → register / verify / login / forgot / reset / me
@@ -26,3 +28,5 @@ apiRouter.use(orderRouter);
 apiRouter.use(couponRouter);
 apiRouter.use(subscriberRouter);
 apiRouter.use(dashboardRouter);
+apiRouter.use(wishlistRouter);
+apiRouter.use(paymentRouter);

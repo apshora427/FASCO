@@ -8,6 +8,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const Newsletter = () => {
   const [email, setEmail] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   // writes the inbox to the subscribers collection (admin dashboard reads it)
   const subscribe = async (e) => {
@@ -16,9 +17,18 @@ const Newsletter = () => {
       toast.error("Please enter a valid email address")
       return
     }
-    const res = await subscribeRequest(email)
-    toast.success(res?.message || "Subscribed to the FASCO newsletter!")
-    setEmail("")
+    setSubmitting(true)
+    try {
+      const res = await subscribeRequest(email.trim())
+      if (!res?.success) {
+        toast.error(res?.message || "We couldn't subscribe you right now. Please try again.")
+        return
+      }
+      toast.success(res.message || "Subscribed to the FASCO newsletter!")
+      setEmail("")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -51,15 +61,19 @@ const Newsletter = () => {
             onSubmit={subscribe}
             className="relative z-10 flex w-full max-w-[631px] flex-col gap-[30px]">
             <input
-              type="text"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="michael@ymail.com"
               aria-label="Email address"
+              autoComplete="email"
+              required
+              disabled={submitting}
               className="w-full border border-white bg-white px-[27px] py-[29px] text-[22px] leading-[1.18] text-black shadow-[0_3px_3px_rgba(0,0,0,0.01),0_13px_7px_rgba(0,0,0,0.02),0_33px_13px_rgba(0,0,0,0.02),0_63px_25px_rgba(0,0,0,0.02),0_106px_47px_rgba(0,0,0,0.03),0_163px_80px_rgba(0,0,0,0.04)] outline-none placeholder:text-[#8a8a8a] focus:border-[#e6e6e6]"
             />
             <button
               type="submit"
+              disabled={submitting}
               className="btn-dark self-center"
               style={{
                 fontFamily: "Arial, sans-serif",
@@ -68,7 +82,7 @@ const Newsletter = () => {
                 minHeight: 0,
                 padding: "19px 45px",
               }}>
-              Subscribe Now
+              {submitting ? "Subscribing…" : "Subscribe Now"}
             </button>
           </form>
         </div>

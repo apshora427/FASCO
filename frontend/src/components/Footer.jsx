@@ -1,12 +1,10 @@
 import { Link } from "react-router"
 
 const links = [
-  "Support Center",
-  "Invoicing",
-  "Contract",
-  "Careers",
-  "Blog",
-  "FAQs",
+  { label: "Shop", to: "/shop" },
+  { label: "Shopping cart", to: "/cart" },
+  { label: "Wishlist", to: "/wishlist" },
+  { label: "My account", to: "/account" },
 ]
 
 const Footer = () => (
@@ -20,18 +18,18 @@ const Footer = () => (
           FASCO
         </Link>
         <nav className="flex flex-wrap justify-center gap-x-[38px] gap-y-2.5 md:pl-10">
-          {links.map((label) => (
-            <a
+          {links.map(({ label, to }) => (
+            <Link
               key={label}
-              href="#"
+              to={to}
               className="text-[16px] text-[#484848] transition-colors hover:text-black">
               {label}
-            </a>
+            </Link>
           ))}
         </nav>
       </div>
       <p className="py-[24px] text-center text-[12px] leading-[2.17] text-[#484848]">
-        Copyright © 2022 FASCO. All Rights Reserved
+        Copyright © {new Date().getFullYear()} FASCO. All Rights Reserved
       </p>
     </div>
   </footer>

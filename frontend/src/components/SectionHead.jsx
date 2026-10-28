@@ -1,9 +1,10 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 
 // Small label + heading pair used above every homepage/shop section.
 function SectionHead({ text, para }) {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.4 });
+  const prefersReducedMotion = useReducedMotion();
 
   return (
     <div className="flex flex-col gap-[30px]">
@@ -13,10 +14,9 @@ function SectionHead({ text, para }) {
 
       <motion.div
         ref={ref}
-        initial={{ opacity: 0, scaleX: 0, transformOrigin: "left" }}
-        animate={inView ? { opacity: 1, scaleX: 1 } : {}}
-        transition={{ duration: 1, ease: "easeInOut", delay: 0.2 }}
-        className="origin-left">
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+        animate={inView ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.38, ease: "easeOut" }}>
         <h5 className="text-[36px] font-Display font-semibold leading-[48px] text-black dark:text-white mb-[60px]">
           {para}
         </h5>

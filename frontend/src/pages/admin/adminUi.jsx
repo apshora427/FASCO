@@ -5,7 +5,7 @@ import { useEffect } from "react"
 
 
 export const Card = ({ children, className }) => (
-  <div className={"rounded-[14px] border border-[#ececec] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.05)] dark:border-[#262626] dark:bg-[#161616] dark:shadow-none " + (className || "")}>
+  <div className={"admin-panel rounded-[14px] border border-[#ececec] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.05)] dark:border-[#262626] dark:bg-[#161616] dark:shadow-none " + (className || "")}>
     {children}
   </div>
 )
@@ -14,7 +14,7 @@ export const Card = ({ children, className }) => (
  * look (cards, badges, modal, empty state) identical without duplicating it. */
 
 export const card =
-  "rounded-[14px] border border-[#ececec] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.05)] dark:border-[#262626] dark:bg-[#161616] dark:shadow-none"
+  "admin-panel rounded-[14px] border border-[#ececec] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.05)] dark:border-[#262626] dark:bg-[#161616] dark:shadow-none"
 
 export const inputCls =
   "w-full rounded-[8px] border border-[#e2e2e2] bg-white px-4 py-2.5 text-[14px] text-[#1a1a1a] outline-none transition-colors placeholder:text-[#9a9a9a] focus:border-black dark:border-[#333] dark:bg-[#101010] dark:text-white dark:placeholder:text-[#5f5f5f] dark:focus:border-[#fca120]"
@@ -52,12 +52,12 @@ export const Badge = ({ kind = "user", children }) => (
 )
 
 export const SectionTitle = ({ title, subtitle, action }) => (
-  <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+  <div className="admin-section-title mb-6 flex flex-wrap items-end justify-between gap-3">
     <div>
       <h1 className="font-Display text-[clamp(26px,2.4vw,36px)] leading-none text-black dark:text-white">
         {title}
       </h1>
-      {subtitle && <p className="mt-2 text-[14px] text-[#8a8a8a]">{subtitle}</p>}
+      {subtitle && <p className="sub mt-2 text-[14px] text-[#8a8a8a]">{subtitle}</p>}
     </div>
     {action}
   </div>
@@ -138,7 +138,7 @@ export const ConfirmDialog = ({ open, title, message, onConfirm, onCancel, busy 
   <Modal open={open} onClose={onCancel} title={title || "Are you sure?"} width="max-w-md">
     <p className="text-[14px] leading-relaxed text-[#6a6a6a] dark:text-[#a5a5a5]">{message}</p>
     <div className="mt-6 flex justify-end gap-3">
-      <button type="button" className={btnGhost} onClick={onCancel}>
+      <button type="button" className={btnGhost} onClick={onCancel} disabled={busy}>
         Cancel
       </button>
       <button

@@ -1,7 +1,8 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 
 const ScrollFadeIn = ({ children, delay = 0 }) => {
+  const prefersReducedMotion = useReducedMotion();
   const { ref, inView } = useInView({
     triggerOnce: true,
     // low threshold so tall sections still trigger on small viewports —
@@ -12,12 +13,12 @@ const ScrollFadeIn = ({ children, delay = 0 }) => {
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 60 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{
-        duration: 0.8,      // longer animation
+        duration: prefersReducedMotion ? 0 : 0.48,
         ease: "easeOut",
-        delay,              // optional delay for staggered animations
+        delay: prefersReducedMotion ? 0 : delay,
       }}
     >
       {children}

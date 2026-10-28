@@ -1,9 +1,10 @@
 // CardWrapper.jsx
 import React from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 
 const CardWrapper = ({ children }) => {
+  const prefersReducedMotion = useReducedMotion();
   const { ref, inView } = useInView({
     triggerOnce: true,
     threshold: 0.3,
@@ -12,11 +13,11 @@ const CardWrapper = ({ children }) => {
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 20 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.7, ease: "easeOut" }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.42, ease: "easeOut" }}
       className="bg-white dark:bg-[#121212] rounded-lg p-4 transition-colors duration-300"
-      whileHover={{ scale: 1.02, boxShadow: "0 8px 20px rgba(219, 68, 68, 0.2)" }}
+      whileHover={prefersReducedMotion ? undefined : { y: -2, boxShadow: "0 12px 28px rgba(0, 0, 0, 0.08)" }}
     >
       {children}
     </motion.div>

@@ -12,6 +12,10 @@ const DAY = 24 * 60 * 60 * 1000;
 export const getStats = asyncHandler(async (_req, res) => {
   const since = new Date(Date.now() - 6 * DAY);
   since.setHours(0, 0, 0, 0); // include today fully
+  const paidOrderFilter = {
+    status: { $ne: "cancelled" },
+    $or: [{ paymentStatus: "paid" }, { paymentStatus: { $exists: false } }],
+  };
 
   const [productCount, categoryCount, userCount, subscriberCount, revenueAgg, statusAgg, trendAgg, topItems, recentOrders, lowStock] =
     await Promise.all([
@@ -19,14 +23,15 @@ export const getStats = asyncHandler(async (_req, res) => {
       Category.countDocuments(),
       User.countDocuments(),
       Subscriber.countDocuments(),
-      Order.aggregate([{ $match: { status: { $ne: "cancelled" } } }, { $group: { _id: null, revenue: { $sum: "$total" }, count: { $sum: 1 } } }]),
+      Order.aggregate([{ $match: paidOrderFilter }, { $group: { _id: null, revenue: { $sum: "$total" }, count: { $sum: 1 } } }]),
       Order.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
       Order.aggregate([
-        { $match: { createdAt: { $gte: since }, status: { $ne: "cancelled" } } },
+        { $match: { ...paidOrderFilter, createdAt: { $gte: since } } },
         { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, revenue: { $sum: "$total" }, orders: { $sum: 1 } } },
         { $sort: { _id: 1 } },
       ]),
       Order.aggregate([
+        { $match: paidOrderFilter },
         { $unwind: "$items" },
         { $group: { _id: "$items.productId", title: { $first: "$items.title" }, image: { $first: "$items.image" }, sold: { $sum: "$items.quantity" }, revenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } } } },
         { $sort: { sold: -1 } },

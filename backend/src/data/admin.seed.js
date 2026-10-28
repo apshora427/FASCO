@@ -11,7 +11,7 @@ export const ensureAdmin = async (User) => {
   }
 
   const email = env.adminEmail.toLowerCase();
-  const existing = await User.findOne({ email });
+  const existing = await User.findOne({ email }).select("+password");
 
   if (existing) {
     let changed = false;

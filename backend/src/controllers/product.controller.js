@@ -1,6 +1,9 @@
 import { Product } from "../models/product.model.js";
+import { Category } from "../models/category.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { Review } from "../models/review.model.js";
+import { User } from "../models/user.model.js";
 
 // GET /product — full catalogue, optionally filtered by ?category=.
 // Same envelope as every endpoint: { success, message, ...payload }.
@@ -40,8 +43,8 @@ export const getProductById = asyncHandler(async (req, res) => {
 // Fields the dashboard product form may set. `id` is server-assigned so new
 // items slot in after the existing catalogue (1..n) without collisions.
 const pickFields = (body) => {
-  const str = (v) => (typeof v === "string" ? v.trim() : undefined);
-  const num = (v) => (v === undefined || v === null || v === "" ? undefined : Number(v));
+  const str = (v) => (v === null ? null : typeof v === "string" ? v.trim() : undefined);
+  const num = (v) => (v === undefined ? undefined : v === null || v === "" ? null : Number(v));
   const strArray = (v) =>
     Array.isArray(v) ? v.map((s) => String(s).trim()).filter(Boolean) : undefined;
 
@@ -65,16 +68,63 @@ const pickFields = (body) => {
   return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
 };
 
+const validateProductFields = async (fields, { creating = false } = {}) => {
+  if (creating) {
+    for (const key of ["title", "price", "category", "image"]) {
+      if (fields[key] === undefined || fields[key] === "") {
+        throw new ApiError(400, `${key} is required`);
+      }
+    }
+  }
+
+  if (fields.title !== undefined && (!fields.title || fields.title.length > 160)) {
+    throw new ApiError(400, "Product title must be between 1 and 160 characters");
+  }
+  if (fields.image !== undefined) {
+    const imageIsSafe =
+      fields.image.length <= 2048 &&
+      !/^javascript:/i.test(fields.image) &&
+      (!/^https?:/i.test(fields.image) || /^https?:\/\/\S+$/i.test(fields.image));
+    if (!fields.image || !imageIsSafe) throw new ApiError(400, "A valid product image source is required");
+  }
+
+  for (const key of ["price", "originalPrice", "rating", "stock"]) {
+    if (fields[key] === undefined) continue;
+    if (key === "originalPrice" && fields[key] === null) continue;
+    if (!Number.isFinite(fields[key])) throw new ApiError(400, `${key} must be a valid number`);
+    if (key === "stock" && (!Number.isInteger(fields[key]) || fields[key] < 0)) {
+      throw new ApiError(400, "Stock must be a non-negative whole number");
+    }
+    if (key === "price" && fields[key] < 0) throw new ApiError(400, "Price cannot be negative");
+    if (key === "originalPrice" && fields[key] < 0) {
+      throw new ApiError(400, "Original price cannot be negative");
+    }
+    if (key === "rating" && (fields[key] < 0 || fields[key] > 5)) {
+      throw new ApiError(400, "Rating must be between 0 and 5");
+    }
+  }
+  if (
+    fields.price !== undefined &&
+    fields.originalPrice !== undefined &&
+    fields.originalPrice < fields.price
+  ) {
+    throw new ApiError(400, "Original price cannot be lower than the current price");
+  }
+  if (fields.category !== undefined) {
+    const category = await Category.findOne({ categoryName: fields.category });
+    if (!category) throw new ApiError(400, "Select a valid product category");
+  }
+  for (const key of ["images", "sizes", "colors"]) {
+    if (fields[key] && fields[key].some((value) => value.length > 2048)) {
+      throw new ApiError(400, `${key} entries must be 2048 characters or fewer`);
+    }
+  }
+};
+
 // POST /product/create — admin: add a product (auto id, validated essentials).
 export const createProduct = asyncHandler(async (req, res) => {
   const fields = pickFields(req.body || {});
-
-  for (const key of ["title", "price", "category", "image"]) {
-    if (fields[key] === undefined || fields[key] === "" || Number.isNaN(fields[key])) {
-      throw new ApiError(400, `${key} is required`);
-    }
-  }
-  if (fields.price < 0) throw new ApiError(400, "Price cannot be negative");
+  await validateProductFields(fields, { creating: true });
 
   const last = await Product.findOne().sort({ id: -1 });
   const product = await Product.create({ ...fields, id: (last?.id ?? 0) + 1 });
@@ -91,12 +141,8 @@ export const updateProduct = asyncHandler(async (req, res) => {
   if (!product) throw new ApiError(404, "Product not found");
 
   const fields = pickFields(req.body || {});
-  if (fields.price !== undefined && (Number.isNaN(fields.price) || fields.price < 0)) {
-    throw new ApiError(400, "Price cannot be negative");
-  }
-  if (fields.title === "" || fields.category === "" || fields.image === "") {
-    throw new ApiError(400, "title, category and image cannot be empty");
-  }
+  await validateProductFields(fields);
+  if (Object.keys(fields).length === 0) throw new ApiError(400, "Provide at least one product field to update");
 
   Object.assign(product, fields);
   await product.save();
@@ -111,6 +157,8 @@ export const deleteProduct = asyncHandler(async (req, res) => {
 
   const product = await Product.findOneAndDelete({ id: Number(id) });
   if (!product) throw new ApiError(404, "Product not found");
+  await Review.deleteMany({ productId: product.id });
+  await User.updateMany({ wishlistIds: product.id }, { $pull: { wishlistIds: product.id } });
 
   res.json({ success: true, message: "Product deleted" });
 });

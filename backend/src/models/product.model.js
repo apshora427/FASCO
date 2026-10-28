@@ -21,7 +21,7 @@ const productSchema = new Schema(
     images: [{ type: String, trim: true }], // optional gallery override
     sizes: [{ type: String, trim: true }], // optional — page derives defaults when empty
     colors: [{ type: String, trim: true }],
-    stock: { type: Number, min: 0 },
+    stock: { type: Number, min: 0, default: 20 },
     arrival: { type: Boolean, default: false }, // part of the New Arrivals rail
   },
   { timestamps: true }

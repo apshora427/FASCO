@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react"
-import { Link } from "react-router"
+import { useCallback, useEffect, useState } from "react"
 import { toast } from "react-toastify"
-import { LuPlus } from "react-icons/lu"
+import { LuPackage, LuPlus, LuRefreshCw } from "react-icons/lu"
 import {
   createProduct,
   getProducts,
   getCategories,
   updateProduct,
   deleteProduct,
+  uploadProductImage,
 } from "../../api/backend"
-import { Badge, EmptyState, SectionTitle, Spinner, card, btnDark, Drawer, inputCls } from "./adminUi"
+import { Badge, ConfirmDialog, EmptyState, SectionTitle, Spinner, card, btnDark, Drawer, inputCls } from "./adminUi"
+import { resolveImage } from "../../data/products"
 
 // The product form feeds from the same fields the catalog screen renders — the
 // backend stores them by id so the DB is the single source of truth.
@@ -40,28 +41,76 @@ export default function Products() {
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [busy, setBusy] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState("")
+  const [confirm, setConfirm] = useState(null)
 
-  useEffect(() => {
-    let alive = true
-    Promise.all([getCategories(), getProducts()])
-      .then(([cats, prods]) => {
-        if (!alive) return
-        setCategories(cats?.success ? cats.category.map((c) => c.categoryName) : [])
-        setProducts(prods?.success ? prods.products : [])
-      })
-      .catch(() => setCategories([]))
-      .finally(() => setLoading(false))
-    return () => { alive = false }
+  const loadData = useCallback(async (silent = false) => {
+    if (silent) setRefreshing(true)
+    else setLoading(true)
+    setLoadError("")
+    try {
+      const [cats, prods] = await Promise.all([getCategories(), getProducts()])
+      if (!Array.isArray(prods) || !Array.isArray(cats)) {
+        throw new Error("Could not load products and categories. Check the backend connection.")
+      }
+      setCategories(cats)
+      setProducts(prods)
+    } catch (error) {
+      setLoadError(error.message || "Could not load products.")
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }, [])
 
-  const refresh = () => {
-    getProducts()
-      .then((res) => setProducts(res?.success ? res.products : []))
-      .catch(() => setProducts([]))
+  useEffect(() => {
+    let active = true
+    const refresh = () => {
+      if (active) loadData(true)
+    }
+    loadData()
+    window.addEventListener("fasco:catalog:updated", refresh)
+    return () => {
+      active = false
+      window.removeEventListener("fasco:catalog:updated", refresh)
+    }
+  }, [loadData])
+
+  const refresh = () => loadData(true)
+
+  const uploadImages = async (event) => {
+    const files = Array.from(event.target.files || [])
+    event.target.value = ""
+    if (!files.length) return
+    setUploading(true)
+    try {
+      const results = await Promise.all(files.map((file) => uploadProductImage(file)))
+      const uploaded = results.filter((result) => result?.success).map((result) => result.imageUrl)
+      if (uploaded.length !== files.length) {
+        toast.error(results.find((result) => !result?.success)?.message || "Some images could not be uploaded")
+      }
+      if (uploaded.length) {
+        setForm((previous) => ({
+          ...previous,
+          image: uploaded[0],
+          images: [...new Set([
+            ...previous.images.split(",").map((image) => image.trim()).filter(Boolean),
+            ...(previous.image && previous.image !== uploaded[0] ? [previous.image] : []),
+            ...uploaded.slice(1),
+          ])].join(", "),
+        }))
+        toast.success(`${uploaded.length} image${uploaded.length === 1 ? "" : "s"} uploaded`)
+      }
+    } finally {
+      setUploading(false)
+    }
   }
 
   const filtered = products.filter((p) => {
-    if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false
+    const query = search.trim().toLowerCase()
+    if (query && ![p.title, p.brand, p.category, String(p.id)].some((value) => String(value || "").toLowerCase().includes(query))) return false
     if (cat && p.category !== cat) return false
     return true
   })
@@ -82,7 +131,7 @@ export default function Products() {
       images: prod.images ? prod.images.join(", ") : "",
       sizes: prod.sizes ? prod.sizes.join(", ") : "",
       colors: prod.colors ? prod.colors.join(", ") : "",
-      stock: prod.stock ? String(prod.stock) : "",
+      stock: prod.stock !== undefined && prod.stock !== null ? String(prod.stock) : "",
       arrival: !!prod.arrival,
     })
   }
@@ -93,49 +142,75 @@ export default function Products() {
       toast.error("Title, category and price are required")
       return
     }
-    if (form.price < 0 || Number.isNaN(form.price)) {
+    if (!Number.isFinite(Number(form.price)) || Number(form.price) < 0) {
       toast.error("Price must be a number ≥ 0")
+      return
+    }
+    if (!form.stock.trim() || !Number.isSafeInteger(Number(form.stock)) || Number(form.stock) < 0) {
+      toast.error("Stock must be a non-negative whole number")
       return
     }
     setBusy(true)
     const payload = {
       title: form.title.trim(),
-      brand: form.brand.trim() || undefined,
+      brand: form.brand.trim() || (editing ? null : undefined),
       category: form.category,
       price: Number(form.price),
-      originalPrice: form.originalPrice ? Number(form.originalPrice) : undefined,
-      discount: form.discount.trim() || undefined,
-      tag: form.tag.trim() || undefined,
+      originalPrice: form.originalPrice
+        ? Number(form.originalPrice)
+        : editing ? null : undefined,
+      discount: form.discount.trim() || (editing ? null : undefined),
+      tag: form.tag.trim() || (editing ? null : undefined),
       rating: Number(form.rating) || undefined,
-      reviews: form.reviews.trim() || undefined,
+      reviews: form.reviews.trim() || (editing ? null : undefined),
       image: form.image,
-      images: form.images ? form.images.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-      sizes: form.sizes ? form.sizes.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-      colors: form.colors ? form.colors.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+      images: form.images ? form.images.split(",").map((s) => s.trim()).filter(Boolean) : editing ? [] : undefined,
+      sizes: form.sizes ? form.sizes.split(",").map((s) => s.trim()).filter(Boolean) : editing ? [] : undefined,
+      colors: form.colors ? form.colors.split(",").map((s) => s.trim()).filter(Boolean) : editing ? [] : undefined,
       stock: form.stock ? Number(form.stock) : undefined,
       arrival: form.arrival,
     }
-    const res = editing
-      ? await updateProduct(editing.id, payload)
-      : await createProduct({ ...payload })
-    setBusy(false)
-    if (res?.success) {
+    try {
+      const res = editing
+        ? await updateProduct(editing.id, payload)
+        : await createProduct(payload)
+      if (!res?.success) {
+        toast.error(res?.message || "Could not save the product")
+        return
+      }
       toast.success(editing ? "Product updated" : "Product created")
+      setProducts((current) =>
+        editing
+          ? current.map((product) => product.id === res.product.id ? res.product : product)
+          : [...current, res.product].sort((a, b) => a.id - b.id)
+      )
       setEditing(null)
       setForm({ ...EMPTY_FORM })
-      refresh()
-    } else {
-      toast.error(res?.message || "Could not save the product")
+      window.dispatchEvent(new Event("fasco:catalog:updated"))
+    } catch {
+      toast.error("Could not connect to the server")
+    } finally {
+      setBusy(false)
     }
   }
 
-  const remove = async (id) => {
-    const res = await deleteProduct(id)
-    if (res?.success) {
+  const remove = async () => {
+    if (!confirm || busy) return
+    setBusy(true)
+    try {
+      const res = await deleteProduct(confirm.id)
+      if (!res?.success) {
+        toast.error(res?.message || "Could not delete product")
+        return
+      }
+      setProducts((current) => current.filter((product) => product.id !== confirm.id))
+      setConfirm(null)
       toast.success("Product deleted")
-      refresh()
-    } else {
-      toast.error(res?.message || "Could not delete")
+      window.dispatchEvent(new Event("fasco:catalog:updated"))
+    } catch {
+      toast.error("Could not connect to the server")
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -145,9 +220,14 @@ export default function Products() {
         title="Products"
         subtitle="The catalogue lives in MongoDB — add, edit or remove anything from here and the storefront changes instantly."
         action={
-          <button type="button" className={btnDark} onClick={() => { setEditing(null); setForm({ ...EMPTY_FORM }) }}>
-            <LuPlus size={16} /> New Product
-          </button>
+          <div className="flex gap-2">
+            <button type="button" className={btnDark} onClick={refresh} disabled={refreshing}>
+              <LuRefreshCw size={15} className={refreshing ? "animate-spin" : ""} /> Refresh
+            </button>
+            <button type="button" className={btnDark} onClick={() => { setEditing(false); setForm({ ...EMPTY_FORM }) }}>
+              <LuPlus size={16} /> New Product
+            </button>
+          </div>
         }
       >
         <LuPackage size={16} />
@@ -166,7 +246,14 @@ export default function Products() {
         </select>
       </div>
 
-      {loading ? (
+      {loadError ? (
+        <div className={`${card} p-6 text-center`}>
+          <p className="text-sm text-[#b91c1c]">{loadError}</p>
+          <button type="button" className={`${btnDark} mt-4`} onClick={refresh} disabled={refreshing}>
+            Retry
+          </button>
+        </div>
+      ) : loading ? (
         <Spinner />
       ) : filtered.length === 0 ? (
         <EmptyState title="No products found" hint="Try a different search or add a new product." />
@@ -175,14 +262,14 @@ export default function Products() {
           {filtered.map((p) => (
             <article key={p.id} className={card}>
               <div className="flex items-start gap-4">
-                <img src={p.image} alt={p.title} className="h-28 w-24 rounded-xl object-cover" />
+                <img src={resolveImage(p.image)} alt={p.title} loading="lazy" className="h-28 w-24 rounded-xl object-cover" />
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate font-semibold text-[#1a1a1a] dark:text-white">{p.title}</h3>
                   <p className="text-[12px] text-[#8a8a8a] dark:text-[#aaa]">{p.brand} · {p.category}</p>
                   <p className="mt-1 text-[14px] font-bold text-black dark:text-white">
-                    ${p.price.toFixed(2)}
+                    ${Number(p.price).toFixed(2)}
                     {p.originalPrice && p.price < p.originalPrice && (
-                      <span className="ml-2 text-[12px] font-normal text-[#8a8a8a] line-through dark:text-[#aaa]">${p.originalPrice.toFixed(2)}</span>
+                      <span className="ml-2 text-[12px] font-normal text-[#8a8a8a] line-through dark:text-[#aaa]">${Number(p.originalPrice).toFixed(2)}</span>
                     )}
                     {p.discount && <Badge kind="sale">{p.discount}</Badge>}
                   </p>
@@ -204,7 +291,7 @@ export default function Products() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => remove(p.id, p.title)}
+                    onClick={() => setConfirm({ id: p.id, title: p.title })}
                     className="inline-flex items-center gap-1.5 rounded-[6px] border border-[#f3c6c6] px-3 py-1.5 text-[12px] font-medium text-[#b91c1c] hover:bg-[#f87171]/10 dark:border-[#4a1212] dark:text-[#f87171] dark:hover:bg-[#4a1212]/15"
                   >
                     Delete
@@ -217,7 +304,7 @@ export default function Products() {
         </div>
       )}
 
-      <Drawer open={editing !== null} onClose={() => setEditing(null)} title={editing ? "Edit product" : "New product"}>
+      <Drawer open={editing !== null} onClose={() => !busy && setEditing(null)} title={editing && editing !== false ? "Edit product" : "New product"}>
         <form className="grid grid-cols-1 gap-x-6 gap-y-4" onSubmit={save}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="text-[13px] font-medium text-[#484848] dark:text-[#ccc]">Product name *</label>
@@ -240,10 +327,23 @@ export default function Products() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label className="text-[13px] font-medium text-[#484848] dark:text-[#ccc]">Main image key</label>
-            <select className={inputCls} value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })}>
-              {Object.keys(IMAGE_KEYS).map((k) => <option key={k} value={k}>{k}</option>)}
-            </select>
+            <label className="text-[13px] font-medium text-[#484848] dark:text-[#ccc]">Main image key, URL, or uploaded image *</label>
+            <div className="space-y-2">
+              <input className={inputCls} list="product-image-keys" value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} placeholder="arrival-1 or https://…" required />
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={uploadImages}
+                disabled={uploading}
+                aria-label="Upload product images (JPEG, PNG, WebP; up to 5 MB each)"
+                className="block w-full text-[13px] text-[#484848] file:mr-3 file:rounded-md file:border-0 file:bg-black file:px-3 file:py-2 file:text-white disabled:opacity-50 dark:text-[#ccc]"
+              />
+              <p className="text-[12px] text-[#8a8a8a]">{uploading ? "Uploading images…" : "JPEG, PNG, or WebP; maximum 5 MB per image."}</p>
+            </div>
+            <datalist id="product-image-keys">
+              {Object.keys(IMAGE_KEYS).map((key) => <option key={key} value={key} />)}
+            </datalist>
             <label className="text-[13px] font-medium text-[#484848] dark:text-[#ccc]">Extra gallery images (comma separated keys or URLs)</label>
             <input className={inputCls} value={form.images} onChange={(e) => setForm({ ...form, images: e.target.value })} placeholder="deal-1, follow-3" />
             <label className="text-[13px] font-medium text-[#484848] dark:text-[#ccc]">Available sizes (comma separated)</label>
@@ -251,7 +351,7 @@ export default function Products() {
             <label className="text-[13px] font-medium text-[#484848] dark:text-[#ccc]">Available colours (comma separated)</label>
             <input className={inputCls} value={form.colors} onChange={(e) => setForm({ ...form, colors: e.target.value })} placeholder="Black, Blue" />
             <label className="text-[13px] font-medium text-[#484848] dark:text-[#ccc]">Stock quantity</label>
-            <input className={inputCls} type="number" min="0" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} placeholder="12" />
+            <input className={inputCls} type="number" min="0" step="1" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} placeholder="12" required />
             <label className="text-[13px] font-medium text-[#484848] dark:text-[#ccc] flex items-center gap-2">
               <input type="checkbox" checked={form.arrival} onChange={(e) => setForm({ ...form, arrival: e.target.checked })} />
               Is new arrival?
@@ -259,13 +359,21 @@ export default function Products() {
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" className={btnDark} onClick={() => setEditing(null)}>Cancel</button>
-            <button type="submit" disabled={busy} className="inline-flex items-center rounded-[8px] bg-black px-5 py-2.5 text-[13px] font-medium text-white dark:bg-[#fca120] dark:text-black">
-              {busy ? "Saving…" : editing ? "Update product" : "Create product"}
+            <button type="button" className={btnDark} onClick={() => setEditing(null)} disabled={busy}>Cancel</button>
+            <button type="submit" disabled={busy || uploading} className="inline-flex items-center rounded-[8px] bg-black px-5 py-2.5 text-[13px] font-medium text-white disabled:opacity-50 dark:bg-[#fca120] dark:text-black">
+              {uploading ? "Uploading…" : busy ? "Saving…" : editing ? "Update product" : "Create product"}
             </button>
           </div>
         </form>
       </Drawer>
+      <ConfirmDialog
+        open={!!confirm}
+        title="Delete product?"
+        message={confirm ? `Delete "${confirm.title}" from the catalogue? Existing orders will keep their saved item details.` : ""}
+        onConfirm={remove}
+        onCancel={() => !busy && setConfirm(null)}
+        busy={busy}
+      />
     </div>
   )
 }

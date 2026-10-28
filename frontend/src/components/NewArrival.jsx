@@ -1,12 +1,48 @@
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router"
 import ProductCard from "./ProductCard"
-import { categories, products } from "../data/products"
+import { getProducts } from "../api/backend"
+import { resolveImage } from "../data/products"
 
 const NewArrival = () => {
-  const [active, setActive] = useState("Women's Fashion")
+  const [catalogue, setCatalogue] = useState([])
+  const [active, setActive] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState("")
+  const [reloadKey, setReloadKey] = useState(0)
 
-  const visible = products.filter((p) => p.category === active)
+  useEffect(() => {
+    let activeRequest = true
+    setLoading(true)
+    setLoadError("")
+    getProducts()
+      .then((result) => {
+        if (!activeRequest) return
+        if (!Array.isArray(result)) {
+          setLoadError("Products are temporarily unavailable.")
+          return
+        }
+        const normalized = result.map((product) => ({
+          ...product,
+          image: resolveImage(product.image),
+        }))
+        setCatalogue(normalized)
+        setActive((current) => current || normalized.find((product) => product.arrival)?.category || normalized[0]?.category || "")
+      })
+      .catch(() => {
+        if (activeRequest) setLoadError("Products are temporarily unavailable.")
+      })
+      .finally(() => {
+        if (activeRequest) setLoading(false)
+      })
+    return () => { activeRequest = false }
+  }, [reloadKey])
+
+  const categories = useMemo(
+    () => [...new Set(catalogue.map((product) => product.category).filter(Boolean))],
+    [catalogue]
+  )
+  const visible = catalogue.filter((product) => product.category === active)
 
   return (
     <section
@@ -47,7 +83,16 @@ const NewArrival = () => {
           ))}
         </div>
 
-        {visible.length > 0 ? (
+        {loading ? (
+          <p className="mt-10 text-center text-[16px] text-subtext" role="status">Loading the latest collection…</p>
+        ) : loadError ? (
+          <div className="mt-10 flex flex-col items-center gap-3 text-center text-[16px] text-subtext" role="alert">
+            <p>{loadError}</p>
+            <button type="button" className="rounded-lg border border-[#dedfe1] px-4 py-2 text-sm text-[#484848]" onClick={() => setReloadKey((key) => key + 1)}>
+              Try again
+            </button>
+          </div>
+        ) : visible.length > 0 ? (
           <div
             className="grid grid-cols-[repeat(auto-fill,minmax(min(320px,100%),1fr))]"
             style={{

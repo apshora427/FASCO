@@ -14,6 +14,5 @@ dashboardRouter.get("/users", requireAuth, requireAdmin, getUsers)
 dashboardRouter.get("/coupons", requireAuth, requireAdmin, getCoupons)
 dashboardRouter.get("/subscribers", requireAuth, requireAdmin, getSubscribers)
 dashboardRouter.get("/orders", requireAuth, requireAdmin, getOrders);
-dashboardRouter.get("/users", requireAuth, requireAdmin, getUsers);
 dashboardRouter.patch("/user/:id/role", requireAuth, requireAdmin, updateUserRole);
 dashboardRouter.delete("/user/:id", requireAuth, requireAdmin, deleteUser);

@@ -91,7 +91,7 @@ const Cart = () => {
                     )}
                     <button
                       type="button"
-                      onClick={() => removeFromCart(item.id)}
+                      onClick={() => removeFromCart(item.id, item.size, item.color)}
                       className="mt-6 block text-[clamp(14px,1.2vw,17px)] leading-none text-[#8a8a8a] underline underline-offset-[3px] transition-colors hover:text-black dark:hover:text-white">
                       Remove
                     </button>
@@ -108,7 +108,7 @@ const Cart = () => {
                   <div className="flex h-[44px] w-[115px] items-center justify-between rounded-[4px] border border-[#D9D9D9] px-1 dark:border-[#3f3f3f]">
                     <button
                       type="button"
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      onClick={() => updateQuantity(item.id, item.quantity - 1, item.size, item.color)}
                       aria-label={`Decrease quantity of ${item.title}`}
                       className="grid h-9 w-9 place-items-center text-[#484848] transition-colors hover:text-black dark:text-[#e5e7eb] dark:hover:text-white">
                       <LuMinus size={16} />
@@ -118,7 +118,7 @@ const Cart = () => {
                     </span>
                     <button
                       type="button"
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      onClick={() => updateQuantity(item.id, item.quantity + 1, item.size, item.color)}
                       aria-label={`Increase quantity of ${item.title}`}
                       className="grid h-9 w-9 place-items-center text-[#484848] transition-colors hover:text-black dark:text-[#e5e7eb] dark:hover:text-white">
                       <LuPlus size={16} />

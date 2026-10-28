@@ -8,14 +8,25 @@ const userSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true }, // bcrypt hash — never a plain value
+    password: { type: String, select: false },
+    googleSubject: { type: String, unique: true, sparse: true, select: false },
     phone: { type: String, trim: true, default: "" },
     avatar: { type: String, trim: true, default: "" },
+    wishlistIds: { type: [Number], default: [] },
     role: { type: String, enum: ["user", "admin"], default: "user", index: true },
     isVerified: { type: Boolean, default: false },
+    tokenVersion: { type: Number, default: 0, select: false },
     // 6-digit confirmation code + expiry (OTP-style, like the Confirmation screen)
     verifyCode: { type: String, select: false },
     verifyCodeExpires: { type: Date, select: false },
+    verifyCodePurpose: { type: String, enum: ["signup", "reset"], select: false },
+    verifyCodeAttempts: { type: Number, default: 0, select: false },
+    verifyCodeLockedUntil: { type: Date, select: false },
+    emailChangeCode: { type: String, select: false },
+    emailChangeTarget: { type: String, lowercase: true, trim: true, select: false },
+    emailChangeCodeExpires: { type: Date, select: false },
+    emailChangeCodeAttempts: { type: Number, default: 0, select: false },
+    emailChangeCodeLockedUntil: { type: Date, select: false },
   },
   { timestamps: true }
 );

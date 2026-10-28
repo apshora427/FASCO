@@ -5,7 +5,6 @@ import { toast } from "react-toastify"
 import dayjs from "dayjs"
 import {
   LuCircleHelp,
-  LuEye,
   LuMinus,
   LuPackage,
   LuPlus,
@@ -20,9 +19,11 @@ import Features from "../components/Features"
 import DealsOfTheMonth from "../components/DealsOfTheMonth"
 import Newsletter from "../components/Newsletter"
 import Footer from "../components/Footer"
+import ProductReviews from "../components/ProductReviews"
 import { products, formatPrice, resolveImage } from "../data/products"
 import { getProduct } from "../api/backend"
 import { UseStore } from "../context/StoreContext"
+import { readComparedIds, saveComparedIds } from "../utils/comparison"
 
 /* ------------------------------------------------------------------ *
  * Design tokens sampled from the Figma "Product Page" frame
@@ -39,37 +40,23 @@ const PALETTE = {
   Purple: "#C6B2D6",
   Grey: "#B9B9B9",
 }
-const DEFAULT_SIZES = ["M", "L", "XL", "XXL"]
-const STOCK_BATCH = 60 // stock level the progress bar is measured against
 const FREE_SHIPPING_OVER = 75
-const pad = (n) => String(n).padStart(2, "0")
-
 /* ------------------------------------------------------------------ *
- * Per-product UI data. The catalogue only ships one image + base fields,
- * so everything else (gallery shots, colours, stock, live viewers, the
- * sale window) is derived deterministically from the product itself —
- * the same product always renders the same state, across reloads too.
+ * Product details prefer fields supplied by the live catalogue. Optional
+ * galleries and variants stay empty when the product has none.
  * ------------------------------------------------------------------ */
 const useGallery = (product) =>
   useMemo(() => {
     // a backend-provided gallery wins when present (keys already resolved)
     if (Array.isArray(product.images) && product.images.length) return product.images
-    const sameCategory = products.filter((p) => p.id !== product.id && p.category === product.category)
-    const pool = [product.image, ...sameCategory.map((p) => p.image), ...products.map((p) => p.image)]
-    const seen = new Set()
-    return pool.filter((src) => (seen.has(src) ? false : seen.add(src))).slice(0, 7)
+    return product.image ? [product.image] : []
   }, [product])
 
 const colorsFor = (product) => {
-  if (Array.isArray(product.colors) && product.colors.length) return product.colors
-  const names = Object.keys(PALETTE)
-  const start = Number(product.id) % names.length
-  return [0, 3, 6].map((offset) => names[(start + offset) % names.length])
+  return Array.isArray(product.colors) ? product.colors : []
 }
 
-const stockFor = (product) => product.stock ?? 4 + ((Number(product.id) * 7) % STOCK_BATCH)
-const viewersBaseFor = (product) => 8 + ((Number(product.id) * 5) % 22)
-const saleWindowFor = (product) => (6 * 3600 + 42 * 60) * 1000 * Math.max(1, Number(product.id) % 4)
+const stockFor = (product) => Number.isFinite(Number(product.stock)) ? Math.max(0, Number(product.stock)) : 0
 
 /* ------------------------------------------------------------------ *
  * Small building blocks
@@ -83,39 +70,6 @@ const Stars = ({ rating }) => (
     ))}
   </span>
 )
-
-const Countdown = ({ deadline }) => {
-  const [remaining, setRemaining] = useState(() => Math.max(0, deadline - Date.now()))
-
-  useEffect(() => {
-    const timer = setInterval(() => setRemaining(Math.max(0, deadline - Date.now())), 1000)
-    return () => clearInterval(timer)
-  }, [deadline])
-
-  const totalSec = Math.floor(remaining / 1000)
-  const units = [
-    Math.floor(totalSec / 86400),
-    Math.floor(totalSec / 3600) % 24,
-    Math.floor(totalSec / 60) % 60,
-    totalSec % 60,
-  ]
-
-  return (
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-[8px] bg-[#FDEFEE] px-6 py-[19px] dark:bg-[#241817]">
-      <p className="text-[clamp(13px,1.18vw,17px)] font-semibold leading-none text-[#FF706B]">
-        {remaining > 0 ? "Hurry up! Sale ends in:" : "This sale has ended:"}
-      </p>
-      <p className="flex items-center gap-[13px] text-[clamp(13px,1.18vw,17px)] font-semibold leading-none tabular-nums text-[#FF706B]">
-        {units.map((unit, index) => (
-          <span key={index} className="flex items-center gap-[13px]">
-            {index > 0 && <span className="text-[#FDC7C5]">:</span>}
-            {pad(unit)}
-          </span>
-        ))}
-      </p>
-    </div>
-  )
-}
 
 const PaymentCard = ({ children, bg = "#ffffff" }) => (
   <svg viewBox="0 0 36 24" className="h-[24px] w-[36px] shrink-0" role="img" aria-hidden="true">
@@ -182,27 +136,23 @@ const ProductView = ({ product }) => {
 
   const gallery = useGallery(product)
   const colors = useMemo(() => colorsFor(product), [product])
-  const sizes = product.sizes?.length ? product.sizes : DEFAULT_SIZES
+  const sizes = Array.isArray(product.sizes) ? product.sizes : []
   const stock = stockFor(product)
   const wished = isInWishlist(product.id)
 
   const [activeImage, setActiveImage] = useState(0)
-  const [size, setSize] = useState(sizes[0])
-  const [color, setColor] = useState(colors[0])
+  const [size, setSize] = useState(sizes[0] || "")
+  const [color, setColor] = useState(colors[0] || "")
   const [quantity, setQuantity] = useState(1)
-  const [compared, setCompared] = useState(false)
-
-  // live "people viewing" counter — drifts a little every few seconds
-  const [viewers, setViewers] = useState(() => viewersBaseFor(product))
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setViewers((current) => Math.min(60, Math.max(5, current + Math.floor(Math.random() * 5) - 2)))
-    }, 6000)
-    return () => clearInterval(timer)
-  }, [])
-
-  // one sale window per product, stable for as long as you stay on the page
-  const saleEndsAt = useMemo(() => Date.now() + saleWindowFor(product), [product])
+  const [compareIds, setCompareIds] = useState(() => {
+    try {
+      return readComparedIds()
+    } catch {
+      toast.error("Your saved comparison list could not be read.")
+      return []
+    }
+  })
+  const compared = compareIds.includes(String(product.id))
 
   const deliveryWindow = useMemo(() => {
     const from = dayjs().add(4, "day")
@@ -215,7 +165,6 @@ const ProductView = ({ product }) => {
       ? Math.round((1 - product.price / product.originalPrice) * 100)
       : 0
 
-  const stockPercent = Math.max(6, Math.min(100, Math.round((stock / STOCK_BATCH) * 100)))
 
   const handleAddToCart = () => {
     // pass the chosen size/colour through so the mini cart shows them
@@ -224,8 +173,16 @@ const ProductView = ({ product }) => {
   }
 
   const handleCompare = () => {
-    setCompared((value) => !value)
-    toast.info(compared ? "Removed from compare list" : `${product.title} added to compare`)
+    const updated = compared
+      ? compareIds.filter((id) => id !== String(product.id))
+      : [...compareIds, String(product.id)]
+    try {
+      saveComparedIds(updated)
+      setCompareIds(updated)
+      toast.success(compared ? "Removed from comparison" : `${product.title} added to comparison`)
+    } catch {
+      toast.error("Could not update your comparison list.")
+    }
   }
 
   const handleShare = async () => {
@@ -317,24 +274,18 @@ const ProductView = ({ product }) => {
           )}
         </div>
 
-        <p className="mt-[34px] flex items-center gap-2 text-[clamp(13px,1.11vw,16px)] leading-none text-[#8a8a8a]">
-          <LuEye size={19} className="shrink-0" />
-          {viewers} people are viewing this right now
-        </p>
-
-        <Countdown deadline={saleEndsAt} />
-
         <div className="mt-8">
           <p className="text-[clamp(13px,1.11vw,16px)] leading-none text-[#8a8a8a]">
-            Only <b className="font-semibold text-black dark:text-white">{stock}</b> item(s) left in stock!
+            {stock > 0 ? (
+              <>In stock: <b className="font-semibold text-black dark:text-white">{stock}</b></>
+            ) : (
+              <span className="font-semibold text-[#DA3F3F]">Out of stock</span>
+            )}
           </p>
-          <div className="mt-3 h-[5px] w-full overflow-hidden rounded-full bg-[#E5E5E5] dark:bg-[#333333]">
-            <div className="h-full rounded-full bg-[#EF2D2D]" style={{ width: `${stockPercent}%` }} />
-          </div>
         </div>
 
         {/* size */}
-        <div className="mt-[26px]">
+        {sizes.length > 0 && <div className="mt-[26px]">
           <p className="font-Display text-[clamp(15px,1.25vw,18px)] font-bold leading-none text-black dark:text-white">
             Size: {size}
           </p>
@@ -354,10 +305,10 @@ const ProductView = ({ product }) => {
               </button>
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* color */}
-        <div className="mt-6">
+        {colors.length > 0 && <div className="mt-6">
           <p className="font-Display text-[clamp(15px,1.25vw,18px)] font-bold leading-none text-black dark:text-white">
             Color: {color}
           </p>
@@ -381,7 +332,7 @@ const ProductView = ({ product }) => {
               />
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* quantity + add to cart */}
         <div className="mt-8">
@@ -411,8 +362,9 @@ const ProductView = ({ product }) => {
             <button
               type="button"
               onClick={handleAddToCart}
+              disabled={stock <= 0}
               className="h-[56px] flex-1 rounded-[8px] border border-[#9F9F9F] font-Display text-[clamp(15px,1.25vw,18px)] leading-none text-black transition-colors hover:border-black hover:bg-black hover:text-white dark:border-[#3f3f3f] dark:text-white dark:hover:border-white dark:hover:bg-white dark:hover:text-black">
-              Add to cart
+              {stock > 0 ? "Add to cart" : "Out of stock"}
             </button>
           </div>
         </div>
@@ -421,8 +373,13 @@ const ProductView = ({ product }) => {
         <div className="mt-8 border-t border-[#EDEDED] pt-8 dark:border-[#2a2a2a]">
           <div className="flex flex-wrap items-center gap-x-[52px] gap-y-3">
             <ActionButton icon={LuSlidersVertical} onClick={handleCompare} aria-pressed={compared}>
-              Compare
+              {compared ? "Remove comparison" : "Compare"}
             </ActionButton>
+            {compareIds.length > 0 && (
+              <Link to="/compare" className="whitespace-nowrap font-Display text-[clamp(13px,1.11vw,16px)] text-[#484848] underline underline-offset-4 hover:text-black dark:text-[#e5e7eb] dark:hover:text-white">
+                View comparison ({compareIds.length})
+              </Link>
+            )}
             <a
               href={`mailto:support@fasco.example?subject=${encodeURIComponent(`Question about ${product.title}`)}`}
               className="flex items-center gap-2 whitespace-nowrap font-Display text-[clamp(13px,1.11vw,16px)] text-[#484848] transition-colors hover:text-black dark:text-[#e5e7eb] dark:hover:text-white">
@@ -523,7 +480,17 @@ const Product_Description = () => {
 
       <div className="container pb-[clamp(48px,5vw,72px)] pt-[clamp(36px,4.7vw,68px)]">
         {product ? (
-          <ProductView key={product.id} product={product} />
+          <>
+            <ProductView key={product.id} product={product} />
+            <ProductReviews
+              productId={product.id}
+              onReviewSubmitted={(updatedProduct) => {
+                setRemote((current) => current.status === "ok"
+                  ? { ...current, product: { ...current.product, ...updatedProduct } }
+                  : current)
+              }}
+            />
+          </>
         ) : remote.status === "pending" ? (
           <div className="py-[60px] text-center">
             <p className="text-[clamp(14px,1.1vw,16px)] text-[#8a8a8a]">Loading product…</p>

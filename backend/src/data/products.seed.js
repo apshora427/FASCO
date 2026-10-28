@@ -11,6 +11,7 @@ const mk = (id, title, image, category, extra = {}) => ({
   tag: "Almost Sold Out",
   category,
   image,
+  stock: 20,
   ...extra,
 });
 
@@ -39,7 +40,10 @@ export const seedProducts = [
 // Never overwrites an existing collection (edits made via the API are kept).
 export const ensureSeedProducts = async (Product) => {
   const count = await Product.countDocuments();
-  if (count > 0) return false;
+  if (count > 0) {
+    await Product.updateMany({ stock: { $exists: false } }, { $set: { stock: 20 } });
+    return false;
+  }
   await Product.insertMany(seedProducts);
   console.log(`Seeded ${seedProducts.length} products`);
   return true;

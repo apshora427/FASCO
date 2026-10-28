@@ -9,8 +9,9 @@ import App from './App'
 import UserProvider from './context/UserContext';
 import StoreProvider from './context/StoreContext';
 import { ThemeProvider } from './components/ThemeProvider';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
-createRoot(document.getElementById('root')).render(
+const app = (
   <StrictMode>
     <UserProvider>
       <StoreProvider>
@@ -19,5 +20,11 @@ createRoot(document.getElementById('root')).render(
         </ThemeProvider>
       </StoreProvider>
     </UserProvider>
-  </StrictMode>,
+  </StrictMode>
+)
+
+createRoot(document.getElementById('root')).render(
+  import.meta.env.VITE_GOOGLE_CLIENT_ID
+    ? <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>{app}</GoogleOAuthProvider>
+    : app,
 )

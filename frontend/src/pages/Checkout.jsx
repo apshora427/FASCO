@@ -1,14 +1,14 @@
-import { useState } from "react"
-import { Link, useNavigate } from "react-router"
+import { useEffect, useState } from "react"
+import { Link } from "react-router"
 import { toast } from "react-toastify"
-import { LuChevronDown, LuLock } from "react-icons/lu"
+import { LuChevronDown } from "react-icons/lu"
 import Navbar from "../components/Navbar"
 import Newsletter from "../components/Newsletter"
 import Footer from "../components/Footer"
 import { UseStore } from "../context/StoreContext"
 import { UseUser } from "../context/UserContext"
-import { placeOrder, validateCoupon } from "../api/backend"
-import { formatPrice, COUPON_CODE, COUPON_DISCOUNT } from "../data/products"
+import { createCheckoutSession, getPaymentConfig, validateCoupon } from "../api/backend"
+import { formatPrice } from "../data/products"
 
 const SHIPPING_FLAT = 40
 const FREE_SHIPPING_OVER = 75 // same threshold the product page and mini cart promise
@@ -38,19 +38,9 @@ const SaveInfo = ({ label, checked, onChange }) => (
   </label>
 )
 
-// Compact Mastercard mark from the design's payment method row.
-const MastercardMark = () => (
-  <svg viewBox="0 0 34 22" className="h-[22px] w-[34px] shrink-0" role="img" aria-label="Mastercard">
-    <rect width="34" height="22" rx="2.5" fill="#16325C" />
-    <circle cx="14" cy="11" r="5.6" fill="#EB001B" />
-    <circle cx="20" cy="11" r="5.6" fill="#F79E1B" fillOpacity="0.9" />
-  </svg>
-)
-
 const Checkout = () => {
-  const { cart, cartSubtotal, clearCart } = UseStore()
+  const { cart, cartSubtotal } = UseStore()
   const { currentUser } = UseUser()
-  const navigate = useNavigate()
 
   const [form, setForm] = useState({
     email: currentUser?.email || "",
@@ -60,17 +50,26 @@ const Checkout = () => {
     city: "",
     postal: "",
     country: "",
-    card: "",
-    exp: "",
-    cvc: "",
-    holder: "",
   })
   const [saveDelivery, setSaveDelivery] = useState(false)
-  const [savePayment, setSavePayment] = useState(false)
+  const [paymentEnabled, setPaymentEnabled] = useState(false)
+  const [paymentLoading, setPaymentLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [code, setCode] = useState("")
   const [appliedCode, setAppliedCode] = useState(null)
 
   const set = (key) => (event) => setForm((prev) => ({ ...prev, [key]: event.target.value }))
+
+  useEffect(() => {
+    let active = true
+    getPaymentConfig().then((config) => {
+      if (active) {
+        setPaymentEnabled(config?.success === true && config.paymentEnabled === true)
+        setPaymentLoading(false)
+      }
+    })
+    return () => { active = false }
+  }, [])
 
   const applyDiscount = async (event) => {
     event.preventDefault()
@@ -81,24 +80,18 @@ const Checkout = () => {
     // the backend owns coupons now — validate against the database
     const res = await validateCoupon(code.trim(), cartSubtotal)
     if (res?.success) {
-      setAppliedCode(res.coupon.code)
+      setAppliedCode({ code: res.coupon.code, discount: res.coupon.discount })
       toast.success(res.message)
     } else if (res === null) {
-      // backend unreachable — keep the advertised demo code working
-      if (code.trim().toUpperCase() === COUPON_CODE) {
-        setAppliedCode(COUPON_CODE)
-        toast.success(`Code ${COUPON_CODE} applied`)
-      } else {
-        setAppliedCode(null)
-        toast.error("Invalid discount code")
-      }
+      setAppliedCode(null)
+      toast.error("The discount service is unavailable. Please try again.")
     } else {
       setAppliedCode(null)
       toast.error(res?.message || "Invalid discount code")
     }
   }
 
-  const discountAmount = appliedCode ? cartSubtotal * COUPON_DISCOUNT : 0
+  const discountAmount = appliedCode ? cartSubtotal * appliedCode.discount : 0
   const shipping = cartSubtotal >= FREE_SHIPPING_OVER ? 0 : SHIPPING_FLAT
   const total = Math.max(0, cartSubtotal - discountAmount) + (cart.length ? shipping : 0)
 
@@ -113,8 +106,8 @@ const Checkout = () => {
       return
     }
 
-    // the order is written to MongoDB (prices re-computed server-side)
-    const res = await placeOrder({
+    setSubmitting(true)
+    const res = await createCheckoutSession({
       items: cart.map((item) => ({
         id: item.id,
         quantity: item.quantity,
@@ -130,24 +123,25 @@ const Checkout = () => {
         postal: form.postal,
         country: form.country,
       },
-      discountCode: appliedCode || "",
+      discountCode: appliedCode?.code || "",
     })
 
     if (res === null) {
-      // backend unreachable — finish the demo order locally so checkout never dead-ends
-      clearCart()
-      toast.success("Order placed successfully")
-      navigate("/thankyou")
+      toast.error("The order service is unavailable. Your cart has been kept; please try again.")
+      setSubmitting(false)
       return
     }
     if (!res.success) {
       toast.error(res.message || "Could not place the order")
+      setSubmitting(false)
       return
     }
-
-    clearCart()
-    toast.success(`Order ${res.order.orderNumber} placed successfully`)
-    navigate("/thankyou", { state: { order: res.order } })
+    if (!res.checkoutUrl) {
+      toast.error("Secure checkout did not return a payment URL")
+      setSubmitting(false)
+      return
+    }
+    window.location.assign(res.checkoutUrl)
   }
 
   return (
@@ -155,7 +149,7 @@ const Checkout = () => {
       <Navbar variant="shop" />
 
       <h1 className="container pt-[clamp(32px,3.4vw,48px)] pb-[clamp(20px,2vw,28px)] text-center font-Display text-[clamp(30px,2.4vw,46px)] leading-[1.15] text-black dark:text-white">
-        FASCO Demo Checkout
+        Secure Checkout
       </h1>
       <div className="h-px w-full bg-[#D9D9D9] dark:bg-[#2a2a2a]" />
 
@@ -179,6 +173,7 @@ const Checkout = () => {
               onChange={set("email")}
               placeholder="Email Address"
               aria-label="Email Address"
+              required
               className={`${inputBase} mt-[30px] h-[68px]`}
             />
 
@@ -192,6 +187,7 @@ const Checkout = () => {
                   value={form.country}
                   onChange={set("country")}
                   aria-label="Country / Region"
+                  required
                   className={`${inputBase} h-[58px] appearance-none pr-12 ${form.country ? "" : "text-[#999999]"}`}>
                   <option value="">Country / Region</option>
                   {COUNTRIES.map((country) => (
@@ -207,15 +203,15 @@ const Checkout = () => {
               </div>
 
               <div className="grid grid-cols-1 gap-[26px] sm:grid-cols-2">
-                <input value={form.first} onChange={set("first")} placeholder="First Name" aria-label="First Name" className={`${inputBase} h-[58px]`} />
-                <input value={form.last} onChange={set("last")} placeholder="Last Name" aria-label="Last Name" className={`${inputBase} h-[58px]`} />
+                <input value={form.first} onChange={set("first")} placeholder="First Name" aria-label="First Name" className={`${inputBase} h-[58px]`} required />
+                <input value={form.last} onChange={set("last")} placeholder="Last Name" aria-label="Last Name" className={`${inputBase} h-[58px]`} required />
               </div>
 
-              <input value={form.address} onChange={set("address")} placeholder="Address" aria-label="Address" className={`${inputBase} h-[58px]`} />
+              <input value={form.address} onChange={set("address")} placeholder="Address" aria-label="Address" className={`${inputBase} h-[58px]`} required />
 
               <div className="grid grid-cols-1 gap-[26px] sm:grid-cols-2">
-                <input value={form.city} onChange={set("city")} placeholder="City" aria-label="City" className={`${inputBase} h-[58px]`} />
-                <input value={form.postal} onChange={set("postal")} placeholder="Postal Code" aria-label="Postal Code" className={`${inputBase} h-[58px]`} />
+                <input value={form.city} onChange={set("city")} placeholder="City" aria-label="City" className={`${inputBase} h-[58px]`} required />
+                <input value={form.postal} onChange={set("postal")} placeholder="Postal Code" aria-label="Postal Code" className={`${inputBase} h-[58px]`} required />
               </div>
 
               <SaveInfo
@@ -229,37 +225,19 @@ const Checkout = () => {
               <SectionTitle>Payment</SectionTitle>
             </div>
 
-            <div className="relative mt-[30px]">
-              <div className={`${inputBase} flex h-[58px] items-center justify-between border-[#9F9F9F] pr-5`}>
-                <span>Credit Card</span>
-                <span className="flex items-center gap-3">
-                  <MastercardMark />
-                  <LuChevronDown size={18} className="text-[#484848] dark:text-[#e5e7eb]" />
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-[18px] flex flex-col gap-[18px] rounded-[6px] bg-[#F5F5F5] p-[22px] dark:bg-[#1a1a1a]">
-              <div className="relative">
-                <input value={form.card} onChange={set("card")} placeholder="Card Number" aria-label="Card Number" className={`${inputBase} h-[52px] pr-14`} />
-                <LuLock size={17} className="pointer-events-none absolute top-1/2 right-5 -translate-y-1/2 text-[#9a9a9a]" />
-              </div>
-              <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2">
-                <input value={form.exp} onChange={set("exp")} placeholder="Expiration Date" aria-label="Expiration Date" className={`${inputBase} h-[52px]`} />
-                <input value={form.cvc} onChange={set("cvc")} placeholder="Security Code" aria-label="Security Code" className={`${inputBase} h-[52px]`} />
-              </div>
-              <input value={form.holder} onChange={set("holder")} placeholder="Card Holder Name" aria-label="Card Holder Name" className={`${inputBase} h-[52px]`} />
-              <SaveInfo
-                label="Save This Info For Future"
-                checked={savePayment}
-                onChange={(event) => setSavePayment(event.target.checked)}
-              />
+            <div className="mt-[18px] rounded-[6px] bg-[#F5F5F5] p-[22px] text-[14px] leading-6 text-[#666] dark:bg-[#1a1a1a] dark:text-[#ccc]">
+              {paymentLoading
+                ? "Checking secure payment availability…"
+                : paymentEnabled
+                  ? "You will complete payment on Stripe’s secure hosted checkout. FASCO never receives or stores your card details."
+                  : "Secure online payments are not configured yet. Please contact the store administrator."}
             </div>
 
             <button
               type="submit"
-              className="mt-[26px] flex h-[62px] w-full items-center justify-center rounded-[10px] bg-black text-[17px] leading-none text-white shadow-[0_20px_35px_rgba(0,0,0,0.15)] transition-colors hover:bg-[#2d2a2a] dark:bg-white dark:text-[#121212] dark:hover:bg-[#d4d4d8]">
-              Pay Now
+              disabled={!paymentEnabled || paymentLoading || submitting}
+              className="mt-[26px] flex h-[62px] w-full items-center justify-center rounded-[10px] bg-black text-[17px] leading-none text-white shadow-[0_20px_35px_rgba(0,0,0,0.15)] transition-colors hover:bg-[#2d2a2a] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-[#121212] dark:hover:bg-[#d4d4d8]">
+              {submitting ? "Connecting to Stripe…" : "Continue to secure payment"}
             </button>
 
             <p className="mt-[22px] text-center text-[13px] leading-[2.17] text-[#9a9a9a]">

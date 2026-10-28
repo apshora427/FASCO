@@ -1,228 +1,183 @@
 import { useEffect, useState } from "react"
-import { Link, useLocation } from "react-router"
+import { Link } from "react-router"
 import { AnimatePresence, motion } from "framer-motion"
-import { LuCheck, LuMinus, LuPlus, LuX } from "react-icons/lu"
+import { LuMinus, LuPlus, LuShoppingBag, LuX } from "react-icons/lu"
 import { UseStore } from "../context/StoreContext"
 import { formatPrice } from "../data/products"
 
-/* Every add-to-cart (product page, wishlist "move to cart", …) announces itself
- * through this event — StoreContext dispatches it, this drawer listens for it. */
-const MINICART_EVENT = "fasco:minicart:open"
-
-const FREE_SHIPPING_OVER = 75 // matches "Free Shipping & Returns … over $75" on the product page
-const GIFT_WRAP_PRICE = 10
-const pad = (n) => String(n).padStart(2, "0")
-
 const MiniCart = () => {
-  const { cart, cartSubtotal, updateQuantity } = UseStore()
   const [open, setOpen] = useState(false)
-  const [wrapped, setWrapped] = useState(false)
-  const location = useLocation()
+  const { cart, cartCount, cartSubtotal, removeFromCart, updateQuantity } = UseStore()
 
-  // listen for "add to cart" anywhere in the app
   useEffect(() => {
-    const show = () => setOpen(true)
-    window.addEventListener(MINICART_EVENT, show)
-    return () => window.removeEventListener(MINICART_EVENT, show)
+    const showCart = () => setOpen(true)
+    window.addEventListener("fasco:minicart:open", showCart)
+    return () => window.removeEventListener("fasco:minicart:open", showCart)
   }, [])
 
-  // navigating (Checkout / View Cart / an item) closes the drawer
   useEffect(() => {
-    setOpen(false)
-  }, [location.pathname])
+    if (!open) return
 
-  // Escape closes it and the page behind stops scrolling while it is open
-  useEffect(() => {
-    if (!open) return undefined
-    const onKeyDown = (event) => {
+    const closeOnEscape = (event) => {
       if (event.key === "Escape") setOpen(false)
     }
-    document.addEventListener("keydown", onKeyDown)
-    const previous = document.body.style.overflow
+
+    const previousOverflow = document.body.style.overflow
     document.body.style.overflow = "hidden"
+    window.addEventListener("keydown", closeOnEscape)
     return () => {
-      document.removeEventListener("keydown", onKeyDown)
-      document.body.style.overflow = previous
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener("keydown", closeOnEscape)
     }
   }, [open])
-
-  const subtotal = cartSubtotal + (wrapped ? GIFT_WRAP_PRICE : 0)
-  const remaining = Math.max(0, FREE_SHIPPING_OVER - cartSubtotal)
 
   return (
     <AnimatePresence>
       {open && (
-        <div key="minicart" className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label="Shopping Cart">
-          {/* light scrim — the design dims the page to roughly 22% black */}
-          <motion.div
+        <div className="fixed inset-0 z-[310]">
+          <motion.button
+            type="button"
+            aria-label="Close mini cart"
+            className="absolute inset-0 h-full w-full cursor-default bg-black/40"
+            onClick={() => setOpen(false)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-[rgba(0,0,0,0.22)]"
           />
 
           <motion.aside
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mini-cart-title"
+            className="absolute inset-y-0 right-0 flex w-full max-w-[480px] flex-col overflow-y-auto bg-white shadow-2xl dark:bg-[#171717]"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute top-0 right-0 flex h-full w-[min(728px,100vw)] flex-col bg-white shadow-[-24px_0_70px_rgba(0,0,0,0.12)] dark:bg-[#121212]">
-            {/* ---------------- header ---------------- */}
-            <div className="flex shrink-0 items-start justify-between gap-4 px-6 pt-10 pb-[50px] sm:px-11">
-              <div className="min-w-0">
-                <h2 className="font-Display text-[clamp(32px,2.4vw,46px)] leading-[1.15] text-black dark:text-white">
+            transition={{ type: "tween", duration: 0.25, ease: "easeOut" }}>
+            <header className="flex shrink-0 items-center justify-between border-b border-[#e5e5e5] px-6 py-5 dark:border-[#333]">
+              <div>
+                <h2 id="mini-cart-title" className="font-Display text-[24px] font-semibold text-black dark:text-white">
                   Shopping Cart
                 </h2>
-                {cart.length > 0 && (
-                  <p className="mt-[10px] text-[clamp(14px,1.15vw,17px)] leading-[1.4] text-[#8a8a8a]">
-                    {remaining > 0 ? (
-                      <>
-                        Buy <b className="font-semibold text-black dark:text-white">{formatPrice(remaining)}</b> More
-                        And Get{" "}
-                        <b className="font-semibold text-black dark:text-white">Free Shipping</b>
-                      </>
-                    ) : (
-                      <>
-                        Your Order Qualifies For{" "}
-                        <b className="font-semibold text-black dark:text-white">Free Shipping</b>
-                      </>
-                    )}
-                  </p>
-                )}
+                <p className="mt-1 text-[13px] text-[#777] dark:text-[#aaa]">
+                  {cartCount} {cartCount === 1 ? "item" : "items"}
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                autoFocus
-                aria-label="Close cart"
-                className="mt-1 shrink-0 text-[#484848] transition-colors hover:text-black dark:text-[#e5e7eb] dark:hover:text-white">
+                aria-label="Close mini cart"
+                className="grid h-10 w-10 place-items-center rounded-full text-[#484848] transition-colors hover:bg-[#f3f3f3] dark:text-white dark:hover:bg-[#292929]">
                 <LuX size={22} />
               </button>
-            </div>
+            </header>
 
-            {/* ---------------- items ---------------- */}
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 sm:px-11">
-              {cart.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center gap-4 pb-16 text-center">
-                  <p className="font-Display text-[clamp(22px,1.8vw,28px)] text-black dark:text-white">
-                    Your cart is empty
-                  </p>
-                  <p className="text-[clamp(14px,1.15vw,17px)] text-[#8a8a8a]">
-                    Looks like you haven&apos;t added anything yet.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    className="btn-dark mt-2 px-[46px] tracking-[0.02em]">
-                    Continue Shopping
-                  </button>
-                </div>
-              ) : (
-                cart.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex gap-[26px] border-b border-[#EDEDED] pb-3 dark:border-[#2a2a2a]">
-                    <Link
-                      to={`/product/${item.id}`}
-                      className="block aspect-[3/4] w-[130px] shrink-0 overflow-hidden bg-[#E3E3E3] sm:w-[174px] dark:bg-[#262626]"
-                      aria-label={`View ${item.title}`}>
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </Link>
-
-                    <div className="min-w-0 flex-1">
+            {cart.length === 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+                <LuShoppingBag size={42} className="text-[#999]" />
+                <p className="mt-5 font-Display text-[22px] font-semibold text-black dark:text-white">
+                  Your cart is empty
+                </p>
+                <p className="mt-2 text-[14px] text-[#777] dark:text-[#aaa]">
+                  Add something you love and it will show up here.
+                </p>
+                <Link
+                  to="/shop"
+                  onClick={() => setOpen(false)}
+                  className="mt-7 flex h-12 w-full max-w-[280px] items-center justify-center rounded-[6px] bg-black text-[14px] font-medium text-white transition-colors hover:bg-[#333] dark:bg-white dark:text-black dark:hover:bg-[#ddd]">
+                  Continue Shopping
+                </Link>
+              </div>
+            ) : (
+              <>
+                <div className="min-h-[160px] flex-1 overflow-y-auto px-6">
+                  {cart.map((item) => (
+                    <article key={item.id} className="flex gap-4 border-b border-[#e5e5e5] py-5 dark:border-[#333]">
                       <Link
                         to={`/product/${item.id}`}
-                        className="font-Display text-[clamp(18px,1.5vw,22px)] leading-tight font-bold text-black transition-colors hover:text-[#484848] dark:text-white dark:hover:text-[#a1a1aa]">
-                        {item.title}
+                        onClick={() => setOpen(false)}
+                        className="h-[116px] w-[88px] shrink-0 overflow-hidden bg-[#f2f2f2] dark:bg-[#292929]">
+                        <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
                       </Link>
-
-                      {item.color && (
-                        <p className="mt-[6px] text-[clamp(14px,1.2vw,18px)] leading-none text-[#8a8a8a]">
-                          Color : {item.color}
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <div className="flex items-start justify-between gap-3">
+                          <Link
+                            to={`/product/${item.id}`}
+                            onClick={() => setOpen(false)}
+                            className="line-clamp-2 font-Display text-[16px] font-semibold text-black hover:underline dark:text-white">
+                            {item.title}
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(item.id, item.size, item.color)}
+                            aria-label={`Remove ${item.title} from cart`}
+                            className="shrink-0 text-[#888] transition-colors hover:text-black dark:hover:text-white">
+                            <LuX size={18} />
+                          </button>
+                        </div>
+                        {(item.size || item.color) && (
+                          <p className="mt-1 text-[12px] text-[#777] dark:text-[#aaa]">
+                            {[item.size && `Size: ${item.size}`, item.color && `Color: ${item.color}`]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        )}
+                        <p className="mt-2 text-[14px] font-medium text-black dark:text-white">
+                          {formatPrice(item.price)}
                         </p>
-                      )}
-
-                      <p className="mt-[10px] text-[clamp(15px,1.25vw,19px)] leading-none text-black dark:text-white">
-                        {formatPrice(item.price)}
-                      </p>
-
-                      <div className="mt-4 flex h-[56px] w-[161px] items-center justify-between rounded-[8px] bg-[#F1F1F1] px-[10px] dark:bg-[#1f1f1f]">
-                        <button
-                          type="button"
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          aria-label={`Decrease quantity of ${item.title}`}
-                          className="grid h-10 w-10 place-items-center text-[#484848] transition-colors hover:text-black dark:text-[#e5e7eb] dark:hover:text-white">
-                          <LuMinus size={18} />
-                        </button>
-                        <span className="min-w-8 text-center text-[clamp(16px,1.4vw,22px)] leading-none tabular-nums text-[#9F9F9F]">
-                          {pad(item.quantity)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          aria-label={`Increase quantity of ${item.title}`}
-                          className="grid h-10 w-10 place-items-center text-[#484848] transition-colors hover:text-black dark:text-[#e5e7eb] dark:hover:text-white">
-                          <LuPlus size={18} />
-                        </button>
+                        <div className="mt-auto flex items-center justify-between pt-3">
+                          <div className="flex h-8 items-center rounded-[4px] border border-[#d9d9d9] dark:border-[#444]">
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, item.quantity - 1, item.size, item.color)}
+                              aria-label={`Decrease quantity of ${item.title}`}
+                              className="grid h-8 w-8 place-items-center text-[#555] dark:text-[#ddd]">
+                              <LuMinus size={13} />
+                            </button>
+                            <span className="min-w-7 text-center text-[13px] tabular-nums text-black dark:text-white">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, item.quantity + 1, item.size, item.color)}
+                              aria-label={`Increase quantity of ${item.title}`}
+                              className="grid h-8 w-8 place-items-center text-[#555] dark:text-[#ddd]">
+                              <LuPlus size={13} />
+                            </button>
+                          </div>
+                          <span className="text-[14px] font-semibold text-black dark:text-white">
+                            {formatPrice(item.price * item.quantity)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* ---------------- footer ---------------- */}
-            {cart.length > 0 && (
-              <div className="shrink-0 px-6 pb-6 sm:px-11">
-                <label className="flex cursor-pointer items-center gap-3 border-b border-[#EDEDED] pt-[27px] pb-[22px] dark:border-[#2a2a2a]">
-                  <input
-                    type="checkbox"
-                    checked={wrapped}
-                    onChange={(event) => setWrapped(event.target.checked)}
-                    className="peer sr-only"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-[3px] border-[1.5px] border-[#4A4A4A] text-transparent transition-colors peer-checked:border-black peer-checked:bg-black peer-checked:text-white dark:peer-checked:border-white dark:peer-checked:bg-white dark:peer-checked:text-black">
-                    <LuCheck size={20} />
-                  </span>
-                  <span className="text-[clamp(14px,1.2vw,18px)] leading-[1.4] text-[#8a8a8a]">
-                    For <b className="font-semibold text-black dark:text-white">{formatPrice(GIFT_WRAP_PRICE)}</b>{" "}
-                    Please Wrap The Product
-                  </span>
-                </label>
-
-                <div className="flex items-center justify-between pt-[40px]">
-                  <span className="font-Display text-[clamp(20px,1.6vw,24px)] font-bold text-black dark:text-white">
-                    Subtotal
-                  </span>
-                  <span className="font-Display text-[clamp(20px,1.6vw,24px)] font-bold text-black dark:text-white">
-                    {formatPrice(subtotal)}
-                  </span>
+                    </article>
+                  ))}
                 </div>
 
-                <Link
-                  to="/checkout"
-                  className="mt-[26px] flex h-[60px] w-full items-center justify-center rounded-[10px] bg-black text-[17px] leading-none text-white shadow-[0_20px_35px_rgba(0,0,0,0.15)] transition-colors hover:bg-[#2d2a2a] dark:bg-white dark:text-[#121212] dark:hover:bg-[#d4d4d8]">
-                  Checkout
-                </Link>
-
-                <div className="mt-5 text-center">
+                <footer className="shrink-0 border-t border-[#e5e5e5] px-6 py-5 dark:border-[#333]">
+                  <div className="flex items-center justify-between">
+                    <span className="font-Display text-[18px] font-semibold text-black dark:text-white">Subtotal</span>
+                    <span className="font-Display text-[18px] font-semibold text-black dark:text-white">
+                      {formatPrice(cartSubtotal)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[12px] text-[#777] dark:text-[#aaa]">
+                    Shipping and taxes calculated at checkout.
+                  </p>
+                  <Link
+                    to="/checkout"
+                    onClick={() => setOpen(false)}
+                    className="mt-5 flex h-[50px] w-full items-center justify-center rounded-[6px] bg-black text-[14px] font-medium text-white transition-colors hover:bg-[#333] dark:bg-white dark:text-black dark:hover:bg-[#ddd]">
+                    Check Out
+                  </Link>
                   <Link
                     to="/cart"
-                    className="text-[17px] leading-none font-semibold text-black underline underline-offset-2 dark:text-white">
+                    onClick={() => setOpen(false)}
+                    className="mt-3 flex h-[46px] w-full items-center justify-center rounded-[6px] border border-[#d9d9d9] text-[14px] font-medium text-black transition-colors hover:bg-[#f5f5f5] dark:border-[#444] dark:text-white dark:hover:bg-[#292929]">
                     View Cart
                   </Link>
-                </div>
-              </div>
+                </footer>
+              </>
             )}
           </motion.aside>
         </div>

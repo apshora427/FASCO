@@ -1,16 +1,21 @@
 import { useState } from "react"
-import { Link } from "react-router"
+import { Link, useNavigate } from "react-router"
 import { UseStore } from "../context/StoreContext"
+import { UseUser } from "../context/UserContext"
 
 const ShopHeader = ({ onSearch }) => {
   const [searchOpen, setSearchOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const { cartCount } = UseStore()
+  const { cartCount, wishlistCount } = UseStore()
+  const { currentUser } = UseUser()
+  const navigate = useNavigate()
+  const accountPath = currentUser?.role === "admin" ? "/admin" : "/account"
 
   const submitSearch = (event) => {
     event.preventDefault()
-    onSearch?.(query)
+    if (onSearch) onSearch(query.trim())
+    else navigate(`/shop${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ""}`)
     setSearchOpen(false)
   }
 
@@ -25,7 +30,7 @@ const ShopHeader = ({ onSearch }) => {
                 <ul className="menu__list menu__list--shop">
                   <li className="menu__item"><Link className="menu__link" to="/" onClick={() => setMenuOpen(false)}>Home</Link></li>
                   <li className="menu__item"><Link className="menu__link _active" to="/shop" onClick={() => setMenuOpen(false)}>Shop</Link></li>
-                  <li className="menu__item"><Link className="menu__link" to="/product/1" onClick={() => setMenuOpen(false)}>Products</Link></li>
+                  <li className="menu__item"><Link className="menu__link" to="/shop" onClick={() => setMenuOpen(false)}>Products</Link></li>
                 </ul>
               </nav>
             </div>
@@ -50,8 +55,20 @@ const ShopHeader = ({ onSearch }) => {
                   />
                 </form>
               </div>
-              <Link to="/login" aria-label="Account" className="actions-header-shop__item actions-header-shop__item_profile _icon-profile" />
-              <Link to="/shop" aria-label="Wishlist" className="actions-header-shop__item actions-header-shop__item_favorites _icon-favorite" />
+              <Link
+                to={currentUser ? accountPath : "/login"}
+                state={!currentUser ? { from: "/account" } : undefined}
+                aria-label="Account"
+                className="actions-header-shop__item actions-header-shop__item_profile _icon-profile"
+              />
+              <Link
+                to={currentUser ? "/wishlist" : "/login"}
+                state={!currentUser ? { from: "/wishlist" } : undefined}
+                aria-label={`Wishlist${wishlistCount ? `, ${wishlistCount} items` : ""}`}
+                className="actions-header-shop__item actions-header-shop__item_favorites _icon-favorite"
+              >
+                {wishlistCount > 0 && <span className="ml-1 rounded-full bg-[#ff706b] px-1 text-[10px] text-white">{wishlistCount}</span>}
+              </Link>
               <div className="actions-header-shop__item cart-header">
                 <Link to="/cart" aria-label="Cart" className="cart-header__icon _icon-shopCart">
                   {cartCount > 0 && <span>{cartCount}</span>}
