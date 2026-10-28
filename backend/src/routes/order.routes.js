@@ -10,11 +10,10 @@ import { requireAuth, requireAdmin, optionalAuth } from "../middleware/auth.midd
 
 export const orderRouter = Router();
 
-// checkout is public (guest checkout by design) but links the buyer when a
+// Checkout is public (guest checkout by design) but links the buyer when a
 // token is present; management endpoints are admin-only.
 orderRouter.post("/order", optionalAuth, placeOrder);
-orderRouter.get("/order", requireAuth, requireAdmin, getOrders)
-orderRouter.post("/order", optionalAuth, placeOrder);
+orderRouter.get("/order", requireAuth, requireAdmin, getOrders);
 orderRouter.get("/order/:id", requireAuth, requireAdmin, getOrderById);
 orderRouter.patch("/order/:id/status", requireAuth, requireAdmin, updateOrderStatus);
 orderRouter.post("/coupon/validate", validateCoupon);
