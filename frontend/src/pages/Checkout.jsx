@@ -134,14 +134,11 @@ const Checkout = () => {
     })
 
     if (res === null) {
-      // backend unreachable — finish the demo order locally so checkout never dead-ends
-      clearCart()
-      toast.success("Order placed successfully")
-      navigate("/thankyou")
+      toast.error("Could not connect to the server. Your order was not placed. Please try again.")
       return
     }
-    if (!res.success) {
-      toast.error(res.message || "Could not place the order")
+    if (!res.success || !res.order) {
+      toast.error(res?.message || "Could not place the order")
       return
     }
 
