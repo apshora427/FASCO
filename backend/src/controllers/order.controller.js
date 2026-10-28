@@ -21,13 +21,27 @@ const resolveCoupon = async (code) => {
 // POST /coupon/validate — the checkout "Apply" button, priced server-side.
 export const validateCoupon = asyncHandler(async (req, res) => {
   const { code = "", subtotal = 0 } = req.body || {};
-  const coupon = await resolveCoupon(code);
 
-  const discount = Math.round(Number(subtotal) * coupon.discount * 100) / 100;
+  if (!String(code).trim()) {
+    throw new ApiError(400, "Please enter a discount code");
+  }
+
+  const numericSubtotal = Number(subtotal);
+  if (!Number.isFinite(numericSubtotal) || numericSubtotal < 0) {
+    throw new ApiError(400, "Invalid subtotal");
+  }
+
+  const coupon = await resolveCoupon(code);
+  const discount = Math.round(numericSubtotal * coupon.discount * 100) / 100;
+
   res.json({
     success: true,
     message: `Code ${coupon.code} applied`,
-    coupon: { code: coupon.code, discount: coupon.discount, amount: discount },
+    coupon: {
+      code: coupon.code,
+      discount: coupon.discount,
+      amount: discount,
+    },
   });
 });
 
