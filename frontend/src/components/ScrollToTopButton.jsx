@@ -1,25 +1,22 @@
 import { Link } from "react-router"
 import { LuArrowUp, LuShoppingCart } from "react-icons/lu"
 
-// Figma: two 3.1vw buttons flush with the bottom of the hero, 1.83vw from the
-// right edge, 1.83vw apart.
 const ScrollToTopButton = () => (
   <div
-    className="absolute flex items-end"
-    style={{ right: "1.83vw", bottom: 0, gap: "1.83vw", zIndex: 20 }}>
+    className="absolute z-20 flex items-end"
+    style={{ right: "clamp(15px, 2.8vw, 40px)", bottom: 0, gap: "clamp(10px, 1.3vw, 18px)" }}>
     <Link
       to="/cart"
       aria-label="Open cart"
-      className="flex items-center justify-center bg-black text-white hover:bg-[#222] transition-colors"
-      style={{ width: "3.1vw", height: "3.1vw", borderRadius: "0.45vw", boxShadow: "0 0.4vw 1vw rgba(0,0,0,0.18)" }}>
-      <LuShoppingCart style={{ fontSize: "1.55vw" }} />
+      className="flex h-[clamp(44px,4vw,57px)] w-[clamp(44px,4vw,57px)] items-center justify-center rounded-[10px] bg-black text-white shadow-[0_8px_20px_rgba(0,0,0,0.18)] transition-colors hover:bg-[#2d2a2a] dark:bg-white dark:text-[#121212] dark:hover:bg-[#d4d4d8]">
+      <LuShoppingCart size={22} />
     </Link>
     <button
+      type="button"
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
       aria-label="Scroll to top"
-      className="flex items-center justify-center bg-white text-black transition-shadow"
-      style={{ width: "3.1vw", height: "3.1vw", borderRadius: "9999px", border: "0.11vw solid #D9D9D9", boxShadow: "0 0.3vw 0.9vw rgba(0,0,0,0.10)" }}>
-      <LuArrowUp style={{ fontSize: "1.5vw" }} />
+      className="flex h-[clamp(44px,4vw,57px)] w-[clamp(44px,4vw,57px)] items-center justify-center rounded-full border border-[#D9D9D9] bg-white text-black shadow-[0_6px_18px_rgba(0,0,0,0.10)] transition-colors hover:bg-black hover:text-white">
+      <LuArrowUp size={22} />
     </button>
   </div>
 )

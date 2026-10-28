@@ -9,48 +9,65 @@ const NewArrival = () => {
   const visible = products.filter((p) => p.category === active)
 
   return (
-    <section id="new-arrivals" className="bg-white py-[62px] scroll-mt-[70px]">
+    <section
+      id="new-arrivals"
+      className="scroll-mt-24 bg-white py-[clamp(30px,10.4vw,150px)]">
       <div className="container">
-        <h2 className="font-Display text-[24px] font-bold text-center text-black">
-          New Arrivals
-        </h2>
-        <p className="mt-[8px] mx-auto max-w-[400px] text-center text-[8px] leading-[12px] text-subtext">
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Scelerisque
-          du du is ultrices sollicitudin aliquam sem. Scelerisque du du is
-          ultrices sollicitudin.
-        </p>
+        <div className="mb-[clamp(30px,3.5vw,50px)] text-center">
+          <h2 className="section-title">New Arrivals</h2>
+          <p className="section-copy mx-auto mt-5 max-w-[614px]">
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Scelerisque
+            duis ultrices sollicitudin aliquam sem. Scelerisque duis ultrices
+            sollicitudin.
+          </p>
+        </div>
 
-        <div className="mt-[25px] flex flex-wrap justify-center gap-[10px]">
+        <div
+          className="mb-[clamp(20px,3.5vw,50px)] flex flex-wrap justify-center"
+          style={{ gap: "clamp(10px, 2.1vw, 30px)" }}>
           {categories.map((category) => (
             <button
               key={category}
+              type="button"
               onClick={() => setActive(category)}
-              className={`min-w-[101px] rounded-[4px] px-[13px] py-[8px] text-[8px] border transition-colors ${
+              className={`flex items-center justify-center rounded-[10px] font-Poppins leading-none transition-colors ${
                 active === category
-                  ? "bg-black text-white border-black"
-                  : "bg-white text-black border-line hover:border-[#B9B9B9]"
-              }`}>
+                  ? "bg-black text-white shadow-[0_20px_35px_rgba(0,0,0,0.15)] dark:bg-white dark:text-[#121212]"
+                  : "bg-[#fafafa] text-[#8a8a8a] hover:text-black"
+              }`}
+              style={{
+                width: "clamp(165px, 14.4vw, 207px)",
+                paddingTop: "clamp(16px, 1.4vw, 20px)",
+                paddingBottom: "clamp(16px, 1.4vw, 20px)",
+                lineHeight: 1,
+                fontSize: "13.333px",
+              }}>
               {category}
             </button>
           ))}
         </div>
 
         {visible.length > 0 ? (
-          <div className="mt-[31px] mx-auto grid max-w-[626px] grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[30px]">
+          <div
+            className="grid grid-cols-[repeat(auto-fill,minmax(min(320px,100%),1fr))]"
+            style={{
+              columnGap: "clamp(15px, 4.25vw, 61px)",
+              rowGap: "clamp(15px, 4.2vw, 60px)",
+            }}>
             {visible.slice(0, 6).map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         ) : (
-          <p className="mt-[34px] text-center text-[14px] text-subtext">
+          <p className="mt-10 text-center text-[16px] text-subtext">
             Nothing here yet — check back soon.
           </p>
         )}
 
-        <div className="mt-[25px] flex justify-center">
+        <div className="mt-[clamp(30px,3.5vw,50px)] flex justify-center">
           <Link
             to="/shop"
-            className="rounded-[4px] bg-black px-[32px] py-[10px] text-[8px] text-white shadow-[0_8px_16px_rgba(0,0,0,0.18)] transition-colors hover:bg-[#222]">
+            className="btn-dark px-[62px]">
             View More
           </Link>
         </div>

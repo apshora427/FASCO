@@ -4,35 +4,50 @@ import { formatPrice } from "../data/products"
 const ProductCard = ({ product }) => (
   <Link
     to={`/product/${product.id}`}
-    className="group block rounded-[5px] bg-white p-[12px] shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(0,0,0,0.10)]">
-    <div className="overflow-hidden rounded-[4px]">
+    className="group block rounded-[10px] bg-white transition-transform duration-300 hover:-translate-y-1"
+    style={{
+      padding: "15px 25px 36px",
+      boxShadow: "0 40px 90px rgba(0,0,0,0.06)",
+    }}>
+    <div className="mb-3 overflow-hidden rounded-[10px]">
       <img
         src={product.image}
         alt={product.title}
-        className="aspect-[137/88] w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+        loading="lazy"
+        decoding="async"
+        className="aspect-[336/244] w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
       />
     </div>
 
-    <div className="mt-[9px] flex items-start justify-between">
+    <div className="mb-[25px] flex items-start justify-between gap-3">
       <div>
-        <h3 className="font-Poppins text-[9px] font-semibold text-black">
+        <h3 className="text-[20px] font-medium leading-[1.2] text-[#484848]">
           {product.title}
         </h3>
-        <p className="mt-[1px] text-[6px] text-subtext">{product.brand}</p>
+        <p className="mt-2 text-[12px] leading-none text-[#8a8a8a]">
+          {product.brand}
+        </p>
       </div>
-      <span className="mt-[1px] text-[9px] tracking-[1px] text-star">★★★★★</span>
+      <span
+        className="shrink-0 text-[#FCA120]"
+        style={{ fontSize: "clamp(13px, 1.32vw, 19px)", letterSpacing: "0.03em", lineHeight: 1 }}
+        aria-label={`${product.rating} out of 5 stars`}>
+        ★★★★★
+      </span>
     </div>
 
-    <p className="mt-[7px] text-[6px] text-subtext">
+    <p className="mb-[25px] text-[12px] font-medium leading-4 text-[#484848]">
       {product.reviews} Customer Reviews
     </p>
 
-    <div className="mt-[8px] flex items-center justify-between">
-      <span className="font-Poppins text-[13px] font-semibold text-black">
+    <div className="flex items-end justify-between gap-[30px]">
+      <span className="text-[24px] font-medium leading-[0.83] tracking-[-0.01em] text-[#484848]">
         {formatPrice(product.price)}
       </span>
       {product.tag && (
-        <span className="text-[6px] text-sale">{product.tag}</span>
+        <span className="text-right text-[12px] leading-[1.67] tracking-[-0.01em] text-sale">
+          {product.tag}
+        </span>
       )}
     </div>
   </Link>

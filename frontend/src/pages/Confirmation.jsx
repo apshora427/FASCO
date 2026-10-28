@@ -1,16 +1,92 @@
-import { useRef, useState } from "react"
-import { useNavigate } from "react-router"
-import AuthLayout, { AuthButton } from "../components/AuthLayout"
+import { useState } from "react"
+import { useLocation, useNavigate } from "react-router"
+import { toast } from "react-toastify"
+import AuthLayout from "../components/AuthLayout"
+import { UseUser } from "../context/UserContext"
+import { resendCode } from "../api/backend"
+import confirmationImage from "../assets/reference/auth/confirmation.jpg"
 
 const Confirmation = () => {
   const navigate = useNavigate()
-  const [code, setCode] = useState(Array(6).fill(""))
-  const inputs = useRef([])
-  const setDigit = (value, index) => {
-    const digit = value.replace(/\D/g, "").slice(-1)
-    const next = [...code]; next[index] = digit; setCode(next)
-    if (digit && index < 5) inputs.current[index + 1]?.focus()
+  const location = useLocation()
+  const { confirmCode } = UseUser()
+  const [code, setCode] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  // two flows share this screen: signup (confirm the emailed code, then sign in)
+  // and password recovery (continue into the new-password screen)
+  const isSignup = location.state?.flow === "signup"
+  const email = location.state?.email || ""
+
+  const submit = async (event) => {
+    event.preventDefault()
+    if (!code.trim()) {
+      toast.info("Enter the confirmation code")
+      return
+    }
+    setBusy(true)
+    try {
+      await confirmCode(code.trim())
+      // signup → verified, continue to login; recovery → set the new password
+      navigate(isSignup ? "/login" : `/enter-new-password/${code.trim()}`)
+    } catch {
+      // the context already toasted why (invalid / expired code)
+    } finally {
+      setBusy(false)
+    }
   }
-  return <AuthLayout title="Confirmation Window"><h2 className="auth-section-title font-Display font-semibold">Enter The Confirmation Code</h2><form onSubmit={(event) => { event.preventDefault(); navigate("/enter-new-password/reset") }} className="mt-7"><div className="flex justify-between gap-2">{code.map((digit, index) => <input key={index} ref={(element) => { inputs.current[index] = element }} value={digit} onChange={(event) => setDigit(event.target.value, index)} onKeyDown={(event) => { if (event.key === "Backspace" && !digit && index) inputs.current[index - 1]?.focus() }} inputMode="numeric" aria-label={`Confirmation digit ${index + 1}`} maxLength="1" className="auth-code border-b border-[#dddddd] text-center outline-none focus:border-black" />)}</div><div className="mt-5"><AuthButton>Recover Account</AuthButton></div></form><p className="auth-small mt-3 text-center">Didn&apos;t receive confirmation code? <button type="button" onClick={() => setCode(Array(6).fill(""))} className="text-[#5182ea]">Resend Now</button></p></AuthLayout>
+
+  const resend = async () => {
+    if (!email) {
+      toast.info("Go back and submit your email again to resend the code")
+      return
+    }
+    const res = await resendCode(email)
+    if (res?.success) toast.success(res.message)
+    else toast.error(res?.message || "Could not resend the code")
+  }
+
+  return (
+    <AuthLayout variant="confirmation" image={confirmationImage}>
+      <div className="sign__content sign-content _confirmation">
+        <h1 className="sign-content__title">Enter The Confirmation Code</h1>
+        {email && (
+          <p className="mt-3 text-center text-[13px] text-[#7a7a7a]">
+            We sent a code to <span className="font-semibold text-black">{email}</span>
+          </p>
+        )}
+      </div>
+      <div className="sign__confirmation confirmation">
+        <form className="confirmation__form form-confirmation" onSubmit={submit}>
+          <div className="form-confirmation__item">
+            <input
+              className="form-confirmation__input"
+              type="text"
+              inputMode="numeric"
+              value={code}
+              onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="Confirmation Code"
+              autoComplete="one-time-code"
+              required
+            />
+          </div>
+          <div className="form-confirmation__item _button">
+            <button type="submit" disabled={busy} className="form-confirmation__button button sign-button">
+              {busy ? "Confirming…" : isSignup ? "Confirm & Continue" : "Recover Account"}
+            </button>
+          </div>
+          <div className="form-confirmation__item">
+            <div className="form-confirmation__link">
+              Didn&apos;t receive Confirmation Code?{" "}
+              <button type="button" onClick={resend}>
+                Resend Now
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </AuthLayout>
+  )
 }
+
 export default Confirmation

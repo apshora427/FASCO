@@ -67,7 +67,7 @@ const StoreProvider = ({ children }) => {
   const cart = cartItems
     .map((item) => {
       const product = products.find((p) => p.id === item.id)
-      return product ? { ...product, quantity: item.quantity } : null
+      return product ? { ...product, quantity: item.quantity, size: item.size, color: item.color } : null
     })
     .filter(Boolean)
 
@@ -87,7 +87,9 @@ const StoreProvider = ({ children }) => {
     setStore((prev) => ({ ...prev, wishlistIds: prev.wishlistIds.filter((item) => item !== id) }))
   }
 
-  const addToCart = (product, qty = 1) => {
+  // `variant` (size/colour chosen on the product page) rides along with the cart
+  // line so the mini cart drawer can show exactly what was picked.
+  const addToCart = (product, qty = 1, variant = {}) => {
     if (!product) return
     setStore((prev) => {
       const exists = prev.cartItems.find((item) => item.id === product.id)
@@ -95,13 +97,15 @@ const StoreProvider = ({ children }) => {
         return {
           ...prev,
           cartItems: prev.cartItems.map((item) =>
-            item.id === product.id ? { ...item, quantity: item.quantity + qty } : item
+            item.id === product.id ? { ...item, quantity: item.quantity + qty, ...variant } : item
           ),
         }
       }
-      return { ...prev, cartItems: [...prev.cartItems, { id: product.id, quantity: qty }] }
+      return { ...prev, cartItems: [...prev.cartItems, { id: product.id, quantity: qty, ...variant }] }
     })
     toast.success("Added to cart")
+    // quick-view drawer slides in after every add (product page, wishlist moves, …)
+    window.dispatchEvent(new CustomEvent("fasco:minicart:open"))
   }
 
   const moveToCart = (product) => {

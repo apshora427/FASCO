@@ -1,63 +1,77 @@
 import { useState } from "react"
 import { toast } from "react-toastify"
-import newsletterLeft from "../assets/shop/shop_page_19.png"
-import newsletterRight from "../assets/shop/shop_page_20.png"
+import { subscribe as subscribeRequest } from "../api/backend"
+import newsletterLeft from "../assets/figma/newsletter-left.png"
+import newsletterRight from "../assets/figma/newsletter-right.png"
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const Newsletter = () => {
   const [email, setEmail] = useState("")
 
-  const subscribe = (e) => {
+  // writes the inbox to the subscribers collection (admin dashboard reads it)
+  const subscribe = async (e) => {
     e.preventDefault()
     if (!EMAIL_REGEX.test(email)) {
       toast.error("Please enter a valid email address")
       return
     }
-    toast.success("Subscribed to the FASCO newsletter!")
+    const res = await subscribeRequest(email)
+    toast.success(res?.message || "Subscribed to the FASCO newsletter!")
     setEmail("")
   }
 
   return (
-    <section className="relative flex h-[465px] items-center overflow-hidden bg-white">
-      <img
-        src={newsletterLeft}
-        alt=""
-        aria-hidden="true"
-        className="pointer-events-none absolute bottom-0 left-[12%] h-[86%] w-auto object-contain"
-      />
-      <img
-        src={newsletterRight}
-        alt=""
-        aria-hidden="true"
-        className="pointer-events-none absolute bottom-0 right-[13%] h-[86%] w-auto object-contain"
-      />
-
-      <div className="relative z-10 mx-auto max-w-[640px] px-[16px] text-center">
-        <h2 className="font-Display text-[24px] font-bold text-black">
-          Subscribe To Our Newsletter
-        </h2>
-        <p className="mt-[9px] text-[8px] leading-[12px] text-subtext">
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Scelerisque
-          du du is ultrices sollicitudin aliquam sem. Scelerisque du du is
-          ultrices sollicitudin.
-        </p>
-
-        <form onSubmit={subscribe} className="mx-auto mt-[22px] w-[308px] max-w-full bg-[#F5F5F5]">
-          <input
-            type="text"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="michael@ymail.com"
-            aria-label="Email address"
-            className="w-full border-b border-[#E3E3E3] bg-transparent px-[14px] pb-[7px] pt-[12px] text-[9px] text-black outline-none transition-colors placeholder:text-[#9C9C9C] focus:border-[#B9B9B9]"
+    <section className="relative mt-[clamp(40px,10.4vw,150px)] overflow-hidden bg-white">
+      <div className="container">
+        <div className="relative mx-auto flex w-full flex-col items-center pt-[clamp(60px,14.4vw,207px)] pb-[clamp(60px,17.9vw,257px)]">
+          <img
+            src={newsletterLeft}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute top-0 left-[-25%] h-full w-auto max-w-none object-cover opacity-30 sm:left-[-10%] lg:left-[-4.6875%] lg:opacity-100"
           />
-          <button
-            type="submit"
-            className="mx-auto my-[10px] block rounded-[4px] bg-black px-[27px] py-[9px] text-[8px] text-white shadow-[0_7px_14px_rgba(0,0,0,0.18)] transition-colors hover:bg-[#222]">
-            Subscribe Now
-          </button>
-        </form>
+          <img
+            src={newsletterRight}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute top-0 right-[-25%] h-full w-auto max-w-none object-cover opacity-30 sm:right-[-10%] lg:right-[-4.6875%] lg:opacity-100"
+          />
+
+          <div className="relative z-10 mb-[30px] w-full text-center">
+            <h2 className="section-title">Subscribe To Our Newsletter</h2>
+            <p className="section-copy mx-auto mt-5 max-w-[614px]">
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Scelerisque
+              duis ultrices sollicitudin aliquam sem. Scelerisque duis ultrices
+              sollicitudin.
+            </p>
+          </div>
+
+          <form
+            onSubmit={subscribe}
+            className="relative z-10 flex w-full max-w-[631px] flex-col gap-[30px]">
+            <input
+              type="text"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="michael@ymail.com"
+              aria-label="Email address"
+              className="w-full border border-white bg-white px-[27px] py-[29px] text-[22px] leading-[1.18] text-black shadow-[0_3px_3px_rgba(0,0,0,0.01),0_13px_7px_rgba(0,0,0,0.02),0_33px_13px_rgba(0,0,0,0.02),0_63px_25px_rgba(0,0,0,0.02),0_106px_47px_rgba(0,0,0,0.03),0_163px_80px_rgba(0,0,0,0.04)] outline-none placeholder:text-[#8a8a8a] focus:border-[#e6e6e6]"
+            />
+            <button
+              type="submit"
+              className="btn-dark self-center"
+              style={{
+                fontFamily: "Arial, sans-serif",
+                fontSize: "13.333px",
+                lineHeight: "normal",
+                minHeight: 0,
+                padding: "19px 45px",
+              }}>
+              Subscribe Now
+            </button>
+          </form>
+        </div>
       </div>
     </section>
   )

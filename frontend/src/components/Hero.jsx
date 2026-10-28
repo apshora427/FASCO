@@ -1,82 +1,74 @@
 import { Link } from "react-router"
-import heroLeft from "../assets/hero-left.png"
-import heroStrip from "../assets/hero-strip.png"
-import heroCoral from "../assets/hero-coral.png"
-import heroRight from "../assets/hero-right.png"
+import heroLeft from "../assets/figma/hero-left.jpg"
+import heroRight from "../assets/figma/hero-right.jpg"
+import heroTop from "../assets/figma/hero-top.jpg"
+import heroBottom from "../assets/figma/hero-bottom.jpg"
 import ScrollToTopButton from "./ScrollToTopButton"
 
-// Hero measured off the Figma frame (931px crop → vw):
-//   panels y103-471 (39.6vw), columns 191/209/191 with 18px (2.88%) gutters,
-//   centre stack: strip 0, ULTIMATE 10.42, SALE 15.79, NEW COLLECTION 24.6,
-//   SHOP NOW 26.85, coral 31.68 (all from the top of the grid).
 const Hero = () => (
-  <section className="relative" style={{ paddingInline: "16.3vw", paddingTop: "0.75vw" }}>
-    <div
-      className="relative grid"
-      style={{
-        gridTemplateColumns: "191fr 209fr 191fr",
-        columnGap: "2.88%",
-        height: "39.6vw",
-      }}>
-      <div className="h-full overflow-hidden bg-[#EBEBEB]">
-        <img
-          src={heroLeft}
-          alt="Model in casual winter streetwear"
-          className="w-full h-full object-cover"
-        />
-      </div>
+  <section className="relative bg-white">
+    <div className="container pt-[clamp(26px,5.14vw,74px)] pb-[clamp(40px,3.8vw,55px)]">
+      <div className="grid gap-[clamp(16px,2.44vw,35px)] lg:grid-cols-[392fr_426fr_392fr]">
+        <div className="hidden min-w-0 aspect-[392/756] overflow-hidden bg-[#EBEBEB] lg:block">
+          <img
+            src={heroLeft}
+            alt="Model in casual winter streetwear"
+            className="h-full w-full object-cover"
+          />
+        </div>
 
-      <div className="relative h-full bg-white">
-        <img
-          src={heroStrip}
-          alt="The new collection"
-          className="absolute left-0 w-full object-cover"
-          style={{ top: 0, height: "7.9vw", borderRadius: "0.3vw" }}
-        />
+        <div className="mx-auto flex w-full min-w-0 max-w-[426px] flex-col lg:max-w-none">
+          <img
+            src={heroTop}
+            alt="The new collection"
+            className="mx-auto aspect-[426/150] w-full max-w-[426px] object-cover"
+          />
 
-        <h1
-          className="absolute left-0 w-full text-center font-Poppins font-semibold leading-none text-[#2E2E2E]"
-          style={{ top: "9.9vw", fontSize: "4.3vw", letterSpacing: "-0.01em" }}>
-          ULTIMATE
-        </h1>
+          <div className="flex flex-1 flex-col items-center justify-center py-[clamp(18px,2.4vw,34.5px)] text-center">
+            <h1
+              className="mb-[clamp(28px,3.47vw,50px)] font-Poppins font-medium text-[#484848]"
+              style={{
+                fontSize: "clamp(56px, 6.32vw, 91px)",
+                lineHeight: "clamp(56px, 6.32vw, 91px)",
+                letterSpacing: "-0.04em",
+              }}>
+              ULTIMATE
+              <span
+                className="hero-sale-outline mt-[clamp(22px,2.78vw,40px)] block text-transparent"
+                style={{
+                  fontSize: "clamp(108px, 13.9vw, 200px)",
+                  letterSpacing: "-0.06em",
+                  WebkitTextStroke: "1px #484848",
+                }}>
+                SALE
+              </span>
+            </h1>
+            <p
+              className="mb-[clamp(22px,2.7vw,39px)] font-Poppins uppercase text-[#484848]"
+              style={{ fontSize: "clamp(13px,1.4vw,20px)", letterSpacing: "0.1em", lineHeight: 1 }}>
+              New Collection
+            </p>
+            <Link
+              to="/shop"
+              className="btn-dark px-[61px] uppercase">
+              Shop Now
+            </Link>
+          </div>
 
-        <span
-          className="absolute left-0 w-full text-center font-Poppins font-bold leading-none text-transparent"
-          style={{
-            top: "14.5vw",
-            fontSize: "8.6vw",
-            WebkitTextStroke: "0.24vw #C9C9C9",
-          }}>
-          SALE
-        </span>
+          <img
+            src={heroBottom}
+            alt="Shoppers with bags"
+            className="mx-auto aspect-[426/150] w-full max-w-[426px] object-cover"
+          />
+        </div>
 
-        <p
-          className="absolute left-0 w-full text-center font-Poppins font-medium text-[#444444]"
-          style={{ top: "24.4vw", fontSize: "0.95vw", letterSpacing: "0.11em", lineHeight: 1 }}>
-          NEW COLLECTION
-        </p>
-
-        <Link
-          to="/shop"
-          className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center bg-black text-white font-semibold whitespace-nowrap hover:bg-[#222] transition-colors"
-          style={{ top: "26.85vw", width: "10.7vw", height: "2.78vw", borderRadius: "0.4vw", fontSize: "0.95vw", letterSpacing: "0.05em" }}>
-          SHOP NOW
-        </Link>
-
-        <img
-          src={heroCoral}
-          alt="Shoppers with bags"
-          className="absolute left-0 w-full object-cover"
-          style={{ top: "31.68vw", height: "7.95vw", borderRadius: "0.3vw" }}
-        />
-      </div>
-
-      <div className="h-full overflow-hidden bg-[#EBEBEB]">
-        <img
-          src={heroRight}
-          alt="Model in an orange turtleneck"
-          className="w-full h-full object-cover"
-        />
+        <div className="hidden min-w-0 aspect-[392/756] overflow-hidden bg-[#EBEBEB] lg:block">
+          <img
+            src={heroRight}
+            alt="Model in an orange turtleneck"
+            className="h-full w-full object-cover"
+          />
+        </div>
       </div>
     </div>
 

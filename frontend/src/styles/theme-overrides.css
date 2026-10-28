@@ -1,0 +1,323 @@
+.fasco-ref .page__sign {
+  min-height: 100svh;
+}
+
+.fasco-ref .sign__container {
+  height: min(100svh, 960px);
+  padding-top: clamp(8px, 1.6vh, 20px);
+  padding-bottom: clamp(8px, 1.6vh, 20px);
+}
+
+.fasco-ref .sign__image {
+  height: 100%;
+  min-height: 0;
+}
+
+.fasco-ref .sign__image img {
+  height: 100%;
+}
+
+.fasco-ref .sign__body {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: clamp(24px, 5vh, 92px);
+  padding-bottom: clamp(12px, 2vh, 26px);
+}
+
+.fasco-ref .sign__logo {
+  font-size: clamp(40px, 5.5vh, 66px);
+}
+
+.fasco-ref .sign__content {
+  margin-top: clamp(16px, 4.5vh, 86px);
+}
+
+.fasco-ref .sign__content._forget,
+.fasco-ref .sign__content._confirmation {
+  margin-top: clamp(24px, 6vh, 86px);
+}
+
+.fasco-ref .sign-content__title:not(:last-child) {
+  margin-bottom: clamp(12px, 2.4vh, 29px);
+}
+
+.fasco-ref .sign__or {
+  margin-top: clamp(12px, 3vh, 84px);
+}
+
+.fasco-ref .signin {
+  margin-top: clamp(12px, 3vh, 49px);
+}
+
+.fasco-ref .signup {
+  margin-top: clamp(12px, 3vh, 67px);
+}
+
+.fasco-ref .sign__terms {
+  padding-top: clamp(12px, 2.4vh, 30px);
+  line-height: 1.8;
+}
+
+.fasco-ref .form-signin__item {
+  margin-bottom: clamp(8px, 1.8vh, 29px);
+}
+
+.fasco-ref .form-signin__item._last-input {
+  margin-bottom: clamp(12px, 2.4vh, 41px);
+}
+
+.fasco-ref .form-signin__item._button,
+.fasco-ref .form-signup__item._button {
+  margin-bottom: clamp(8px, 1.6vh, 19px);
+}
+
+.fasco-ref .form-signup__input-block {
+  row-gap: clamp(8px, 1.6vh, 26px);
+  margin-bottom: clamp(12px, 3vh, 44px);
+}
+
+.fasco-ref .forget {
+  margin-top: clamp(16px, 4vh, 55px);
+}
+
+.fasco-ref .confirmation {
+  margin-top: clamp(16px, 4vh, 65px);
+}
+
+.fasco-ref .form-confirmation__item {
+  margin-bottom: clamp(12px, 2.4vh, 39px);
+}
+
+.fasco-ref .form-confirmation__item._button {
+  margin-bottom: clamp(12px, 2vh, 23px);
+}
+
+@media (min-width: 62em) {
+  .fasco-ref .sign__container {
+    max-width: 1310px;
+  }
+}
+
+@media (max-width: 47.99875em) {
+  .fasco-ref .sign__body {
+    padding-top: clamp(24px, 5vh, 52px);
+    padding-bottom: clamp(12px, 2vh, 24px);
+  }
+}
+
+@media (max-width: 47.99875em) {
+  .fasco-ref .page__sign._signup .sign__body {
+    padding-top: clamp(10px, 2vh, 20px);
+    padding-bottom: clamp(8px, 1.5vh, 16px);
+  }
+
+  .fasco-ref .page__sign._signup .sign__logo {
+    font-size: clamp(30px, 9vw, 40px);
+  }
+
+  .fasco-ref .page__sign._signup .sign__content {
+    margin-top: clamp(8px, 2vh, 16px);
+  }
+
+  .fasco-ref .page__sign._signup .sign-content__title:not(:last-child) {
+    margin-bottom: clamp(6px, 1.5vh, 12px);
+  }
+
+  .fasco-ref .page__sign._signup .sign-content__button {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .fasco-ref .page__sign._signup .sign__or {
+    margin-top: clamp(6px, 1.5vh, 12px);
+  }
+
+  .fasco-ref .page__sign._signup .signup {
+    margin-top: clamp(6px, 1.5vh, 12px);
+  }
+
+  .fasco-ref .page__sign._signup .form-signup__input-block {
+    row-gap: clamp(2px, 0.8vh, 6px);
+    margin-bottom: clamp(8px, 1.5vh, 12px);
+  }
+
+  .fasco-ref .page__sign._signup .form-signup__input {
+    line-height: 2.15;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .fasco-ref .page__sign._signup .form-signup__item._button {
+    margin-bottom: clamp(4px, 1vh, 8px);
+  }
+
+  .fasco-ref .page__sign._signup .sign__terms {
+    padding-top: clamp(4px, 1vh, 8px);
+  }
+}
+
+html.dark .fasco-ref {
+  background-color: #121212;
+  color: #f3f4f6;
+}
+
+html.dark .fasco-ref .sign__body {
+  background-color: #181818;
+  border-color: #333333;
+}
+
+html.dark .fasco-ref .sign__logo,
+html.dark .fasco-ref .sign-content__title {
+  color: #f3f4f6;
+}
+
+html.dark .fasco-ref .sign__terms {
+  color: #a1a1aa;
+}
+
+html.dark .fasco-ref .sign-content__button {
+  background-color: #1f1f1f;
+  color: #e5e7eb;
+  border-color: #5b86e5;
+}
+
+html.dark .fasco-ref .sign-content__button:hover {
+  background-color: #272727;
+}
+
+html.dark .fasco-ref .form-signin__input,
+html.dark .fasco-ref .form-signup__input,
+html.dark .fasco-ref .form-forget__input,
+html.dark .fasco-ref .form-confirmation__input {
+  color: #e5e7eb;
+  border-color: #52525b;
+}
+
+html.dark .fasco-ref .form-signin__input::placeholder,
+html.dark .fasco-ref .form-signup__input::placeholder,
+html.dark .fasco-ref .form-forget__input::placeholder,
+html.dark .fasco-ref .form-confirmation__input::placeholder {
+  color: #71717a;
+}
+
+html.dark .fasco-ref .sign__or {
+  color: #a1a1aa;
+}
+
+html.dark .fasco-ref .sign__or span::before,
+html.dark .fasco-ref .sign__or span::after {
+  background-color: #52525b;
+}
+
+html.dark .fasco-ref .sign-button:not(.button_white) {
+  background-color: #f3f4f6;
+  color: #121212;
+  border-color: #f3f4f6;
+}
+
+html.dark .fasco-ref .sign-button:not(.button_white):hover {
+  background-color: #d4d4d8;
+}
+
+html.dark .fasco-ref .sign-button.button_white {
+  background-color: transparent;
+  color: #8ab4f8;
+  border-color: #5b86e5;
+}
+
+html.dark .fasco-ref .form-signin__link,
+html.dark .fasco-ref .form-signup__link a,
+html.dark .fasco-ref .form-forget__link a,
+html.dark .fasco-ref .form-confirmation__link button {
+  color: #8ab4f8;
+}
+
+html.dark .fasco-ref .header-shop__wrapper,
+html.dark .fasco-ref .menu__body,
+html.dark .fasco-ref .menu__body::before,
+html.dark .fasco-ref .search-form__item,
+html.dark .fasco-ref .cart-header__body {
+  background-color: #121212;
+}
+
+html.dark .fasco-ref .header-shop__logo,
+html.dark .fasco-ref .menu__link,
+html.dark .fasco-ref .actions-header-shop__item_profile,
+html.dark .fasco-ref .actions-header-shop__item_favorites,
+html.dark .fasco-ref .cart-header__icon,
+html.dark .fasco-ref .breadcrumbs__link,
+html.dark .fasco-ref .breadcrumbs__current,
+html.dark .fasco-ref .filter-catalog__title,
+html.dark .fasco-ref .card-catalog__title,
+html.dark .fasco-ref .card-catalog__price {
+  color: #f3f4f6;
+}
+
+html.dark .fasco-ref .menu__link::before,
+html.dark .fasco-ref .icon-menu span {
+  background-color: #f3f4f6;
+}
+
+html.dark .fasco-ref .search-form__icon,
+html.dark .fasco-ref .search-form__btn,
+html.dark .fasco-ref .search-form__input {
+  color: #e5e7eb;
+}
+
+html.dark .fasco-ref .card-catalog__price span._old-price {
+  color: #a1a1aa;
+}
+
+html.dark .fasco-ref .card-catalog__color-option input[type=radio]:checked + .card-catalog__color-circle,
+html.dark .fasco-ref .color-filter__color-option input[type=checkbox]:checked + .color-filter__color-circle {
+  border-color: #f3f4f6;
+}
+
+html.dark .fasco-ref .card-catalog__color-circle {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+html.dark .fasco-ref .size-filter__custom-checkbox {
+  color: #a1a1aa;
+  border-color: #52525b;
+}
+
+html.dark .fasco-ref .size-filter__option input[type=checkbox]:checked + .size-filter__custom-checkbox {
+  color: #f3f4f6;
+  border-color: #f3f4f6;
+}
+
+html.dark .fasco-ref .price-filter__custom-price,
+html.dark .fasco-ref .brands-filter__custom-brand,
+html.dark .fasco-ref .collections-filter__custom-collection,
+html.dark .fasco-ref .tags-filter__custom-tag {
+  color: #a1a1aa;
+}
+
+html.dark .fasco-ref .price-filter__option input[type=radio]:checked + .price-filter__custom-price,
+html.dark .fasco-ref .brands-filter__option input[type=checkbox]:checked + .brands-filter__custom-brand,
+html.dark .fasco-ref .collections-filter__option input[type=radio]:checked + .collections-filter__custom-collection,
+html.dark .fasco-ref .tags-filter__option input[type=checkbox]:checked + .tags-filter__custom-tag {
+  color: #f3f4f6;
+}
+
+html.dark .fasco-ref .pagging__link:hover,
+html.dark .fasco-ref .pagging__link._active {
+  background-color: #2a2a2a;
+  color: #f3f4f6;
+}
+
+html.dark .fasco-ref .catalog__footer > p {
+  color: #a1a1aa;
+}
+
+html.dark .fasco-ref .sold-out {
+  background-color: #3f3f46;
+}
+
+@media (max-width: 47.99875em) {
+  html.dark .fasco-ref .menu__body._active::before {
+    background-color: #121212;
+  }
+}

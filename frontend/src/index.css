@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400..700&family=Poppins:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Volkhov:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap');
 
 @import "tailwindcss";
 
@@ -6,14 +6,80 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@font-face {
+  font-family: "Digital Numbers";
+  src: url("./assets/figma/DigitalNumbers-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 html {
   scroll-behavior: smooth;
 }
+
+/* admin dashboard palette — mirrors the storefront theme tokens so the
+ * management screens feel like one product with FASCO. */
+:root[data-theme="dark"] .dashboard-dark {
+  --admin-bg: #0d0d0d;
+  --admin-surface: #161616;
+  --admin-border: #262626;
+}
+
+.dashboard-light {
+  --admin-bg: #f6f6f7;
+  --admin-surface: #ffffff;
+  --admin-border: #ececec;
+}
+
+/* drop-in centering utilities used by the dashboard panels */
+.admin-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.admin-head h1 {
+  margin: 0;
+  font-family: "Inter", "Poppins", sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #111;
+  line-height: 1.2;
+}
+.admin-head .sub {
+  margin-top: 0.25rem;
+  color: #888;
+  font-size: 13px;
+}
+.card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.05);
+}
+
+/* keep the official Figma heading font (Inter) in the admin shell */
+@layer utilities {
+  .admin-heading {
+    font-family: "Inter", "Poppins", sans-serif;
+    font-weight: 700;
+    color: #111;
+  }
+}
+
+/* palette from the Figma design — identical values are used by the
+ * dashboard so the two halves of the build look like one product. */
 
 body {
   background-color: #ffffff;
   color: #000000;
   font-family: "Poppins", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -22,28 +88,121 @@ html.dark body {
   color: #F3F4F6;
 }
 
-/* The Figma frames place all content on a ~16.3% side margin at every width —
-   the container mirrors that proportion exactly (pure vw, never breaks). */
+/* The Figma design uses a 1310px rail with 15px gutters on a 1440px laptop. */
 @utility container {
   margin-inline: auto;
   width: 100%;
-  padding-inline: 16.3vw;
+  max-width: 1310px;
+  padding-inline: 15px;
 }
+
+@layer components {
+  .section-title {
+    font-family: var(--font-Display);
+    font-weight: 400;
+    font-size: clamp(30px, 3.2vw, 46px);
+    line-height: normal;
+    color: #484848;
+  }
+
+  .section-copy {
+    font-size: clamp(14px, 1.12vw, 16px);
+    line-height: 1.62;
+    color: #8a8a8a;
+  }
+
+  .btn-dark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 56px;
+    padding: 0 clamp(32px, 3.4vw, 48px);
+    border-radius: 10px;
+    background: #000;
+    color: #fff;
+    font-size: 16px;
+    line-height: 1;
+    box-shadow: 0 20px 35px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.3s ease;
+  }
+
+  .btn-dark:hover {
+    background: #2d2a2a;
+  }
+
+  .btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 57px;
+    height: 57px;
+    border-radius: 50%;
+    background: #fff;
+    color: #000;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  .btn-outline:hover {
+    background: #000;
+    color: #fff;
+  }
+}
+
+.shop-range {
+  appearance: none;
+  width: 100%;
+  height: 2px;
+  cursor: pointer;
+  background: linear-gradient(to right, #222 var(--range-progress), #dedede var(--range-progress));
+}
+
+.shop-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 8px;
+  height: 8px;
+  border: 1px solid #111;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.shop-range::-moz-range-thumb {
+  width: 7px;
+  height: 7px;
+  border: 1px solid #111;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.auth-page-title { font-size: clamp(19px, 1.55vw, 30px); }
+.auth-card { min-height: clamp(404px, 47vw, 680px); }
+.auth-logo { font-size: clamp(28px, 2.25vw, 44px); }
+.auth-section-title { font-size: clamp(13px, 1.05vw, 20px); }
+.auth-provider { height: clamp(24px, 2.1vw, 40px); font-size: clamp(7px, .62vw, 12px); }
+.auth-or { font-size: clamp(11px, .9vw, 17px); }
+.auth-input { height: clamp(28px, 2.5vw, 48px); font-size: clamp(8px, .65vw, 13px); }
+.auth-button { height: clamp(28px, 2.5vw, 48px); font-size: clamp(7px, .62vw, 12px); }
+.auth-small { font-size: clamp(6px, .52vw, 10px); }
+.auth-code { height: clamp(36px, 3.4vw, 64px); width: clamp(30px, 2.7vw, 52px); font-size: clamp(14px, 1.2vw, 23px); }
 
 @theme {
   /* project colors */
   --color-primary: #000000;
   --color-surface: #FFFFFF;
   --color-muted: #F5F5F5;
-  --color-subtext: #7D8184;
-  --color-line: #E6E6E6;
-  --color-sale: #F86C6C;      /* "Almost Sold Out" */
-  --color-star: #F5A623;      /* rating stars */
-  --color-figmagrey: #F7F7F7; /* section backgrounds in the Figma frames */
+  --color-subtext: #8A8A8A;
+  --color-ink: #484848;
+  --color-line: #DEDFE1;
+  --color-sale: #FF706B;      /* "Almost Sold Out" */
+  --color-star: #FCA120;      /* rating stars */
+  --color-canvas: #FAFAFA;
+  --color-panel: #DADADA;
+  --color-figmagrey: #F8F8F8;
 
   /* fonts */
-  --font-Display: "Playfair Display", serif;
+  --font-Display: "Volkhov", serif;
   --font-Poppins: "Poppins", sans-serif;
+  --font-Digital: "Digital Numbers", monospace;
 
   /* breakpoints */
   --breakpoint-*: initial;
@@ -52,4 +211,159 @@ html.dark body {
   --breakpoint-lg: 992px;
   --breakpoint-xl: 1200px;
   --breakpoint-2xl: 1440px;
+}
+
+html.dark {
+  color-scheme: dark;
+  --color-surface: #121212;
+  --color-muted: #1b1b1b;
+  --color-subtext: #a1a1aa;
+  --color-ink: #e5e7eb;
+  --color-line: #333333;
+  --color-canvas: #171717;
+  --color-panel: #222222;
+  --color-figmagrey: #1c1c1c;
+  --hero-stroke: #e5e7eb;
+}
+
+::selection {
+  background-color: #ff706b;
+  color: #fff;
+}
+
+html {
+  scrollbar-color: #9ca3af #f3f4f6;
+}
+
+html.dark {
+  scrollbar-color: #4b5563 #121212;
+}
+
+html.dark .bg-white {
+  background-color: #121212;
+}
+
+html.dark .bg-white\/95 {
+  background-color: rgb(24 24 24 / 0.95);
+}
+
+html.dark .bg-\[\#fafafa\],
+html.dark .bg-\[\#FAFAFA\] {
+  background-color: #171717;
+}
+
+html.dark .bg-\[\#EBEBEB\],
+html.dark .bg-\[\#ebebeb\] {
+  background-color: #1f1f1f;
+}
+
+html.dark .bg-\[\#dadada\] {
+  background-color: #1f1f1f;
+}
+
+html.dark .bg-\[\#f8f8f8\] {
+  background-color: #191919;
+}
+
+html.dark .bg-\[\#b6b6b6\] {
+  background-color: #4b5563;
+}
+
+html.dark .bg-\[\#484848\] {
+  background-color: #9ca3af;
+}
+
+html.dark .bg-gradient-to-r {
+  background-image: linear-gradient(to right, #121212, #171717);
+}
+
+html.dark .text-black,
+html.dark .text-\[\#484848\] {
+  color: #f3f4f6;
+}
+
+html.dark .text-\[\#767676\],
+html.dark .text-\[\#8a8a8a\],
+html.dark .text-subtext {
+  color: #a1a1aa;
+}
+
+html.dark .border-line,
+html.dark .border-\[\#dedfe1\],
+html.dark .border-\[\#D9D9D9\] {
+  border-color: #333333;
+}
+
+html.dark .hover\:text-black:hover {
+  color: #ffffff;
+}
+
+html.dark .hover\:bg-black:hover {
+  background-color: #f3f4f6;
+}
+
+html.dark .hover\:text-white:hover {
+  color: #121212;
+}
+
+html.dark .section-title {
+  color: #f3f4f6;
+}
+
+html.dark .section-copy {
+  color: #a1a1aa;
+}
+
+html.dark .btn-dark {
+  background: #f3f4f6;
+  color: #121212;
+  box-shadow: 0 20px 35px rgba(0, 0, 0, 0.35);
+}
+
+html.dark .btn-dark:hover {
+  background: #d4d4d8;
+}
+
+html.dark .btn-outline {
+  background: #1f1f1f;
+  color: #f3f4f6;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+html.dark .btn-outline:hover {
+  background: #f3f4f6;
+  color: #121212;
+}
+
+html.dark .shop-range {
+  background: linear-gradient(to right, #f3f4f6 var(--range-progress), #3f3f46 var(--range-progress));
+}
+
+html.dark .shop-range::-webkit-slider-thumb {
+  border-color: #f3f4f6;
+  background: #121212;
+}
+
+html.dark .shop-range::-moz-range-thumb {
+  border-color: #f3f4f6;
+  background: #121212;
+}
+
+html.dark .font-Digital {
+  background-color: #1f1f1f !important;
+  color: #f3f4f6;
+}
+
+html.dark .hero-sale-outline {
+  -webkit-text-stroke-color: #e5e7eb !important;
+}
+
+html.dark .bg-white.shadow-\[0_4px_14px_1px_rgba\(0\,0\,0\,0\.16\)\],
+html.dark .bg-white.shadow-\[0_6px_18px_rgba\(0\,0\,0\,0\.10\)\] {
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+
+html.dark .Toastify__toast {
+  background-color: #1f1f1f;
+  color: #f3f4f6;
 }
