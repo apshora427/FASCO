@@ -26,25 +26,32 @@ try {
 
 const app = createApp();
 
-const recoveryInterval = setInterval(() => {
-  recoverPaymentWork().catch((error) => {
-    console.error("[payments] Background recovery failed:", error.message);
-  });
-}, 60_000);
-recoveryInterval.unref();
+if (process.env.VERCEL !== "1") {
+  const recoveryInterval = setInterval(() => {
+    recoverPaymentWork().catch((error) => {
+      console.error("[payments] Background recovery failed:", error.message);
+    });
+  }, 60_000);
+  recoveryInterval.unref();
+}
+
 recoverPaymentWork().catch((error) => {
   console.error("[payments] Initial recovery failed:", error.message);
 });
 
-const server = app.listen(env.port, () => {
-  console.log(`FASCO API listening on http://localhost:${env.port}${env.apiPrefix}`);
-  console.log(`Health check → http://localhost:${env.port}${env.apiPrefix}/health`);
-});
+export default app;
 
-server.on("error", (err) => {
-  if (err.code === "EADDRINUSE") {
-    console.error(`Port ${env.port} is already in use — stop the other process or set PORT in .env`);
-    process.exit(1);
-  }
-  throw err;
-});
+if (process.env.VERCEL !== "1") {
+  const server = app.listen(env.port, () => {
+    console.log(`FASCO API listening on http://localhost:${env.port}${env.apiPrefix}`);
+    console.log(`Health check → http://localhost:${env.port}${env.apiPrefix}/health`);
+  });
+
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`Port ${env.port} is already in use — stop the other process or set PORT in .env`);
+      process.exit(1);
+    }
+    throw err;
+  });
+}

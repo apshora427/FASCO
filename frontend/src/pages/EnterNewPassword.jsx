@@ -15,6 +15,9 @@ import { setNewPassword } from "../api/backend"
 
 import confirmationImage from "../assets/reference/auth/confirmation.jpg"
 
+const passwordRegex =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?])[a-zA-Z\d!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]{6,12}$/
+
 export default function EnterNewPassword() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -34,8 +37,8 @@ export default function EnterNewPassword() {
       return
     }
 
-    if (password.length < 8) {
-      toast.error("Your password must be at least 8 characters long.")
+    if (!passwordRegex.test(password)) {
+      toast.error("Use 6–12 characters, including uppercase, lowercase, a number, and a symbol.")
       return
     }
 
@@ -122,7 +125,8 @@ export default function EnterNewPassword() {
                   setPassword(event.target.value)
                 }
                 disabled={busy}
-                minLength={8}
+                minLength={6}
+                maxLength={12}
                 required
               />
 
@@ -145,7 +149,7 @@ export default function EnterNewPassword() {
             </div>
 
             <p className="mt-2 text-[11px] text-[#888]">
-              Use at least 8 characters.
+              Use 6–12 characters, including uppercase, lowercase, a number, and a symbol.
             </p>
           </div>
 
@@ -169,7 +173,8 @@ export default function EnterNewPassword() {
                   setConfirmPassword(event.target.value)
                 }
                 disabled={busy}
-                minLength={8}
+                minLength={6}
+                maxLength={12}
                 required
               />
 

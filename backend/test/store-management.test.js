@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { withDbName } from "../src/config/db.config.js";
+import { env } from "../src/config/env.js";
 import { createApp } from "../src/app.js";
 import { Product } from "../src/models/product.model.js";
 import { User } from "../src/models/user.model.js";
@@ -36,6 +37,8 @@ let adminToken;
 let accountToken;
 let userId;
 let accountUserId;
+const originalFetch = globalThis.fetch;
+let rejectResendEmails = false;
 
 const request = async (path, method = "GET", body, token) => {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -74,7 +77,92 @@ test("adds the default database without corrupting MongoDB URI query options", (
   );
 });
 
+test("does not accept confirmation codes when email delivery is unavailable", async () => {
+  const unavailableEmail = "email-unavailable@test.invalid";
+  const originalApiKey = env.resendApiKey;
+  env.resendApiKey = "";
+  const unavailableRegistration = await request("/register", "POST", {
+    name: "Email Unavailable",
+    email: unavailableEmail,
+    password: "Fresh-1!",
+    phone: "+1 555 0102",
+  });
+  assert.equal(unavailableRegistration.status, 503);
+  assert.match(unavailableRegistration.data.message, /No confirmation code was sent/);
+  assert.match(unavailableRegistration.data.message, /SMTP_USER and SMTP_PASS/);
+  let pendingUser = await User.findOne({ email: unavailableEmail })
+    .select("+verifyCode +verifyCodePurpose");
+  assert.equal(pendingUser.isVerified, false);
+  assert.equal(pendingUser.verifyCode, undefined);
+  pendingUser.verifyCode = "123456";
+  pendingUser.verifyCodePurpose = "signup";
+  pendingUser.verifyCodeExpires = new Date(Date.now() + 60_000);
+  pendingUser.verifyCodeSentAt = undefined;
+  await pendingUser.save();
+  assert.equal(
+    (await request("/verify", "POST", { email: unavailableEmail, code: "123456" })).status,
+    401
+  );
+
+  env.resendApiKey = originalApiKey;
+  rejectResendEmails = true;
+  const failedDelivery = await request("/register", "POST", {
+    name: "Email Unavailable",
+    email: unavailableEmail,
+    password: "Fresh-1!",
+    phone: "+1 555 0102",
+  });
+  assert.equal(failedDelivery.status, 502);
+  pendingUser = await User.findOne({ email: unavailableEmail }).select("+verifyCode");
+  assert.equal(pendingUser.verifyCode, undefined);
+
+  rejectResendEmails = false;
+  const retriedRegistration = await request("/register", "POST", {
+    name: "Email Unavailable",
+    email: unavailableEmail,
+    password: "Fresh-1!",
+    phone: "+1 555 0102",
+  });
+  assert.equal(retriedRegistration.status, 201);
+  pendingUser = await User.findOne({ email: unavailableEmail }).select("+verifyCode");
+  const wrongCode = pendingUser.verifyCode === "999999" ? "100000" : "999999";
+  const invalidCode = await request("/verify", "POST", {
+    email: unavailableEmail,
+    code: wrongCode,
+  });
+  assert.equal(invalidCode.status, 401);
+});
+
+test("reports Google sign-in as unavailable unless an OAuth client is configured", async () => {
+  const originalClientId = env.googleClientId;
+  env.googleClientId = "";
+  const result = await request("/google", "POST", {
+    credential: "not-a-google-token",
+    role: "user",
+  });
+  env.googleClientId = originalClientId;
+  assert.equal(result.status, 503);
+  assert.equal(result.data.success, false);
+});
+
 before(async () => {
+  env.resendApiKey = "test-resend-key";
+  globalThis.fetch = async (input, init) => {
+    const url = input instanceof Request ? input.url : String(input);
+    if (url === "https://api.resend.com/emails") {
+      if (rejectResendEmails) {
+        return new Response(JSON.stringify({ message: "provider unavailable" }), {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ id: "test-email-id" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return originalFetch(input, init);
+  };
   mongo = await MongoMemoryReplSet.create({
     replSet: { count: 1, storageEngine: "wiredTiger" },
     instanceOpts: [{ launchTimeout: 30_000 }],
@@ -122,6 +210,7 @@ after(async () => {
   if (server) await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   await mongoose.disconnect();
   if (mongo) await mongo.stop();
+  globalThis.fetch = originalFetch;
 });
 
 test("verifies new customer email and starts an authenticated session", async () => {
@@ -152,6 +241,11 @@ test("verifies new customer email and starts an authenticated session", async ()
     ).status,
     403
   );
+  const invalidVerification = await request("/verify", "POST", {
+    email,
+    code: "000000",
+  });
+  assert.equal(invalidVerification.status, 401);
   const verification = await request("/verify", "POST", {
     email,
     code: pendingUser.verifyCode,
@@ -372,6 +466,26 @@ test("enforces roles and validates category, product, inventory, and order flows
   assert.equal(servedImage.headers.get("cross-origin-resource-policy"), "cross-origin");
   await unlink(join(uploadsDirectory, basename(new URL(uploaded.imageUrl).pathname)));
 
+  const previousVercel = process.env.VERCEL;
+  const previousBlobToken = process.env.BLOB_READ_WRITE_TOKEN;
+  process.env.VERCEL = "1";
+  delete process.env.BLOB_READ_WRITE_TOKEN;
+  try {
+    const unconfiguredBlobForm = new FormData();
+    unconfiguredBlobForm.append("image", new Blob([png], { type: "image/png" }), "tiny.png");
+    const unconfiguredBlobUpload = await fetch(`${baseUrl}/product/upload-image`, {
+      method: "POST",
+      headers: { Authorization: adminToken },
+      body: unconfiguredBlobForm,
+    });
+    assert.equal(unconfiguredBlobUpload.status, 503);
+  } finally {
+    if (previousVercel === undefined) delete process.env.VERCEL;
+    else process.env.VERCEL = previousVercel;
+    if (previousBlobToken === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
+    else process.env.BLOB_READ_WRITE_TOKEN = previousBlobToken;
+  }
+
   const spoofedForm = new FormData();
   spoofedForm.append("image", new Blob([png], { type: "image/jpeg" }), "spoofed.jpg");
   const spoofedUpload = await fetch(`${baseUrl}/product/upload-image`, {
@@ -407,7 +521,8 @@ test("enforces roles and validates category, product, inventory, and order flows
   assert.equal(readiness.data.status, "ready");
   assert.equal(readiness.data.checks.database.status, "up");
   assert.equal(readiness.data.checks.database.topology, "replica_set");
-  assert.ok(["configured", "not_configured"].includes(readiness.data.checks.email.status));
+  assert.equal(readiness.data.checks.email.status, "configured");
+  assert.equal(readiness.data.checks.email.provider, "resend");
   assert.equal((await request("/order", "POST", {})).status, 404);
   if (!paymentConfig.data.paymentEnabled) {
     assert.equal(

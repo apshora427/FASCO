@@ -19,10 +19,12 @@ const userSchema = new Schema(
     // 6-digit confirmation code + expiry (OTP-style, like the Confirmation screen)
     verifyCode: { type: String, select: false },
     verifyCodeExpires: { type: Date, select: false },
+    verifyCodeSentAt: { type: Date, select: false },
     verifyCodePurpose: { type: String, enum: ["signup", "reset"], select: false },
     verifyCodeAttempts: { type: Number, default: 0, select: false },
     verifyCodeLockedUntil: { type: Date, select: false },
     emailChangeCode: { type: String, select: false },
+    emailChangeCodeSentAt: { type: Date, select: false },
     emailChangeTarget: { type: String, lowercase: true, trim: true, select: false },
     emailChangeCodeExpires: { type: Date, select: false },
     emailChangeCodeAttempts: { type: Number, default: 0, select: false },

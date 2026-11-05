@@ -9,6 +9,8 @@ inventory, orders, and payment workflows.
 
 - MongoDB/Mongoose models for users, products, categories, orders, coupons,
   reviews, subscribers, and recommendation activity.
+- Product search across names and catalog details, with combined keyword,
+  price, availability, and existing facet filters.
 - MongoDB-managed homepage content, live catalog-driven deals and arrivals,
   and an administrator editor for storefront copy and campaign presentation.
 - Customer registration, email verification, login/logout, Google sign-in
@@ -22,8 +24,8 @@ inventory, orders, and payment workflows.
 
 ## Run and inspect the backend
 
-See the [backend setup, instructor review guide, API reference, and SMTP
-instructions](./backend/README.md).
+See the [backend setup, instructor review guide, API reference, and email
+provider instructions](./backend/README.md).
 
 Quick start (from `backend/`):
 
@@ -48,14 +50,23 @@ Run the backend integration tests from `backend/`:
 npm.cmd test
 ```
 
-Signup verification and password recovery use SMTP. The backend README
-explains how to configure a private Mailtrap Email Testing sandbox so an
-instructor can inspect the confirmation and recovery messages without
-committing credentials. Stripe payments also require private credentials.
+Signup verification and password recovery use Resend or SMTP. The backend
+README explains real inbox delivery and Mailtrap sandbox setup. Stripe
+payments also require private credentials.
 
 To run the optional storefront, open a second terminal, change to `frontend/`,
 then run `npm.cmd install` and `npm.cmd run dev`. The Vite app uses the local
 backend at `http://localhost:8000/api/v1` by default.
+
+## Deploying to Vercel
+
+The root `vercel.json` defines the `backend` and `frontend` services. The
+backend receives public `/api/*` requests and the Vite frontend receives `/`.
+Production requires an external replica-set MongoDB URI and private
+environment variables; Vercel does not run the local MongoDB process.
+Production product-image uploads use Vercel Blob.
+See [`backend/README.md`](./backend/README.md) for deployment settings and
+provider setup for email and Google sign-in.
 
 ## Repository layout
 

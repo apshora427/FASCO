@@ -11,6 +11,7 @@ import {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendEmailChangeVerification,
+  emailProvider,
 } from "../utils/mailer.js";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,10 +25,47 @@ const googleClient = new OAuth2Client();
 const newCode = (purpose) => ({
   verifyCode: crypto.randomInt(100000, 1000000).toString(),
   verifyCodeExpires: new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000),
+  verifyCodeSentAt: undefined,
   verifyCodePurpose: purpose,
   verifyCodeAttempts: 0,
   verifyCodeLockedUntil: undefined,
 });
+
+const clearVerificationCode = async (user) => {
+  user.verifyCode = undefined;
+  user.verifyCodeExpires = undefined;
+  user.verifyCodeSentAt = undefined;
+  user.verifyCodePurpose = undefined;
+  user.verifyCodeAttempts = 0;
+  user.verifyCodeLockedUntil = undefined;
+  await user.save();
+};
+
+const requireEmailDelivery = (delivery) => {
+  if (!delivery.delivered) {
+    throw new ApiError(
+      503,
+      "No confirmation code was sent. Add your Mailtrap sandbox SMTP_USER and SMTP_PASS to backend/.env, restart the backend, then try again."
+    );
+  }
+};
+
+const sendCodeOrClear = async (user, send) => {
+  let delivery;
+  try {
+    delivery = await send({ to: user.email, name: user.name, code: user.verifyCode });
+  } catch (error) {
+    await clearVerificationCode(user);
+    throw error;
+  }
+  if (!delivery.delivered) {
+    await clearVerificationCode(user);
+    requireEmailDelivery(delivery);
+  }
+  user.verifyCodeSentAt = new Date();
+  await user.save();
+  return delivery;
+};
 
 const publicUser = (user) => ({
   id: user._id,
@@ -63,9 +101,10 @@ const getCodeUser = async ({ email, code, purpose }) => {
   const user = await User.findOne({
     email: normalizedEmail,
     verifyCodePurpose: purpose,
-  }).select("+verifyCode +verifyCodeExpires +verifyCodeAttempts +verifyCodeLockedUntil");
+  }).select("+verifyCode +verifyCodeExpires +verifyCodeSentAt +verifyCodeAttempts +verifyCodeLockedUntil");
 
   if (!user) throw new ApiError(401, "Invalid or expired confirmation code");
+  if (!user.verifyCodeSentAt) throw new ApiError(401, "Invalid or expired confirmation code");
   if (user.verifyCodeLockedUntil && user.verifyCodeLockedUntil > new Date()) {
     throw new ApiError(429, "Too many incorrect codes. Request a new code and try again.");
   }
@@ -107,6 +146,7 @@ const activeCodeFilter = (user, purpose) => {
     verifyCode: user.verifyCode,
     verifyCodePurpose: purpose,
     verifyCodeExpires: { $gt: now },
+    verifyCodeSentAt: { $exists: true },
     verifyCodeAttempts: { $lt: CODE_MAX_ATTEMPTS },
     $or: [
       { verifyCodeLockedUntil: { $exists: false } },
@@ -130,26 +170,29 @@ export const register = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Password must be 6–12 characters and include an uppercase letter, a lowercase letter, a number, and a special character");
   }
 
-  const user = await User.create({
-    name: cleanName,
-    email: normalizedEmail,
-    password: await bcrypt.hash(password, 10),
-    phone: String(phone).trim(),
-    ...newCode("signup"),
-  });
+  let user = await User.findOne({ email: normalizedEmail })
+    .select("+password +verifyCode +verifyCodeExpires +verifyCodePurpose +verifyCodeAttempts +verifyCodeLockedUntil");
+  if (user?.isVerified) throw new ApiError(409, "An account with this email already exists");
 
-  const { delivered } = await sendVerificationEmail({
-    to: user.email,
-    name: user.name,
-    code: user.verifyCode,
-  });
+  if (user) {
+    Object.assign(user, newCode("signup"));
+    await user.save();
+  } else {
+    user = await User.create({
+      name: cleanName,
+      email: normalizedEmail,
+      password: await bcrypt.hash(password, 10),
+      phone: String(phone).trim(),
+      ...newCode("signup"),
+    });
+  }
+
+  await sendCodeOrClear(user, sendVerificationEmail);
 
   res.status(201).json({
     success: true,
-    message: delivered
-      ? "Confirmation code sent to your email"
-      : "Email delivery is unavailable. Please try again later or contact support.",
-    data: { email: user.email, emailSent: delivered },
+    message: "Confirmation code sent to your email",
+    data: { email: user.email, emailSent: true },
   });
 });
 
@@ -165,6 +208,7 @@ export const verifyEmail = asyncHandler(async (req, res) => {
       $unset: {
         verifyCode: 1,
         verifyCodeExpires: 1,
+        verifyCodeSentAt: 1,
         verifyCodePurpose: 1,
         verifyCodeLockedUntil: 1,
       },
@@ -191,6 +235,7 @@ export const verifyResetCode = asyncHandler(async (req, res) => {
 export const resendCode = asyncHandler(async (req, res) => {
   const normalizedEmail = String(req.body?.email || "").trim().toLowerCase();
   if (!emailRegex.test(normalizedEmail)) throw new ApiError(400, "A valid email is required");
+  if (!emailProvider()) requireEmailDelivery({ delivered: false });
 
   const user = await User.findOne({ email: normalizedEmail });
   if (!user || user.isVerified) {
@@ -200,17 +245,11 @@ export const resendCode = asyncHandler(async (req, res) => {
 
   Object.assign(user, newCode("signup"));
   await user.save();
-  const { delivered } = await sendVerificationEmail({
-    to: user.email,
-    name: user.name,
-    code: user.verifyCode,
-  });
+  await sendCodeOrClear(user, sendVerificationEmail);
   res.json({
     success: true,
-    message: delivered
-      ? "Confirmation code resent — please check your email"
-      : "Email delivery is unavailable. Please try again later or contact support.",
-    emailSent: delivered,
+    message: "Confirmation code resent — please check your email",
+    emailSent: true,
   });
 });
 
@@ -250,6 +289,7 @@ export const login = asyncHandler(async (req, res) => {
 export const forgotPassword = asyncHandler(async (req, res) => {
   const normalizedEmail = String(req.body?.email || "").trim().toLowerCase();
   if (!emailRegex.test(normalizedEmail)) throw new ApiError(400, "A valid email is required");
+  if (!emailProvider()) requireEmailDelivery({ delivered: false });
 
   const user = await User.findOne({ email: normalizedEmail });
   if (!user) {
@@ -262,14 +302,11 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 
   Object.assign(user, newCode("reset"));
   await user.save();
-  await sendPasswordResetEmail({
-    to: user.email,
-    name: user.name,
-    code: user.verifyCode,
-  });
+  await sendCodeOrClear(user, sendPasswordResetEmail);
   res.json({
     success: true,
     message: "If an account exists for that email, a reset code will be emailed when delivery is available.",
+    emailSent: true,
   });
 });
 
@@ -433,19 +470,42 @@ export const requestEmailChange = asyncHandler(async (req, res) => {
 
   const code = crypto.randomInt(100000, 1000000).toString();
   user.emailChangeCode = code;
+  user.emailChangeCodeSentAt = undefined;
   user.emailChangeTarget = email;
   user.emailChangeCodeExpires = new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000);
   user.emailChangeCodeAttempts = 0;
   user.emailChangeCodeLockedUntil = undefined;
   await user.save();
 
-  const delivery = await sendEmailChangeVerification({ to: email, name: user.name, code });
+  let delivery;
+  try {
+    delivery = await sendEmailChangeVerification({ to: email, name: user.name, code });
+  } catch (error) {
+    user.emailChangeCode = undefined;
+    user.emailChangeCodeSentAt = undefined;
+    user.emailChangeTarget = undefined;
+    user.emailChangeCodeExpires = undefined;
+    user.emailChangeCodeAttempts = 0;
+    user.emailChangeCodeLockedUntil = undefined;
+    await user.save();
+    throw error;
+  }
+  if (!delivery.delivered) {
+    user.emailChangeCode = undefined;
+    user.emailChangeCodeSentAt = undefined;
+    user.emailChangeTarget = undefined;
+    user.emailChangeCodeExpires = undefined;
+    user.emailChangeCodeAttempts = 0;
+    user.emailChangeCodeLockedUntil = undefined;
+    await user.save();
+    requireEmailDelivery(delivery);
+  }
+  user.emailChangeCodeSentAt = new Date();
+  await user.save();
   res.json({
     success: true,
-    message: delivery.delivered
-      ? "A confirmation code has been sent to your new email address"
-      : "Email delivery is unavailable. Please try again later or contact support.",
-    emailSent: delivery.delivered,
+    message: "A confirmation code has been sent to your new email address",
+    emailSent: true,
   });
 });
 
@@ -454,11 +514,11 @@ export const verifyEmailChange = asyncHandler(async (req, res) => {
   const code = String(req.body?.code || "").trim();
   if (!/^\d{6}$/.test(code)) throw new ApiError(400, "Enter the 6-digit confirmation code");
   const user = await User.findById(req.user.id)
-    .select("+tokenVersion +emailChangeCode +emailChangeTarget +emailChangeCodeExpires +emailChangeCodeAttempts +emailChangeCodeLockedUntil");
+    .select("+tokenVersion +emailChangeCode +emailChangeCodeSentAt +emailChangeTarget +emailChangeCodeExpires +emailChangeCodeAttempts +emailChangeCodeLockedUntil");
   if (!user) throw new ApiError(404, "User not found");
 
   const now = new Date();
-  if (!user.emailChangeCode || !user.emailChangeTarget || !user.emailChangeCodeExpires || user.emailChangeCodeExpires <= now) {
+  if (!user.emailChangeCode || !user.emailChangeCodeSentAt || !user.emailChangeTarget || !user.emailChangeCodeExpires || user.emailChangeCodeExpires <= now) {
     throw new ApiError(401, "Confirmation code expired. Request a new code.");
   }
   if (user.emailChangeCodeLockedUntil && user.emailChangeCodeLockedUntil > now) {
@@ -478,6 +538,7 @@ export const verifyEmailChange = asyncHandler(async (req, res) => {
 
   user.email = user.emailChangeTarget;
   user.emailChangeCode = undefined;
+  user.emailChangeCodeSentAt = undefined;
   user.emailChangeTarget = undefined;
   user.emailChangeCodeExpires = undefined;
   user.emailChangeCodeAttempts = 0;

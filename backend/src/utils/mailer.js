@@ -1,18 +1,21 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env.js";
+import { ApiError } from "./ApiError.js";
 
-// SMTP is optional in development, but verification codes are never returned
-// to the browser as a fallback.
-const hasSmtp = Boolean(env.smtp.user && env.smtp.pass);
+export const emailProvider = () =>
+  env.resendApiKey
+    ? "resend"
+    : env.smtp.user && env.smtp.pass
+      ? "smtp"
+      : null;
 
-const transporter = hasSmtp
-  ? nodemailer.createTransport({
-      host: env.smtp.host,
-      port: env.smtp.port,
-      secure: env.smtp.secure, // false = STARTTLS on 587
-      auth: { user: env.smtp.user, pass: env.smtp.pass },
-    })
-  : null;
+const createSmtpTransporter = () =>
+  nodemailer.createTransport({
+    host: env.smtp.host,
+    port: env.smtp.port,
+    secure: env.smtp.secure,
+    auth: { user: env.smtp.user, pass: env.smtp.pass },
+  });
 
 // FASCO-branded HTML shell shared by both emails (keeps the codebase small
 // the way the guide project shares one template per email).
@@ -48,18 +51,51 @@ const escapeHtml = (value) =>
   })[character]);
 
 const deliver = async (to, subject, html) => {
-  if (!transporter) {
-    console.warn(`[mailer] SMTP is not configured; could not send "${subject}" to ${to}.`);
+  const provider = emailProvider();
+  if (!provider) {
+    console.warn(`[mailer] Email delivery is not configured; could not send "${subject}".`);
     return { delivered: false };
   }
   try {
-    const info = await transporter.sendMail({ from: env.smtp.from, to, subject, html });
-    console.log(`[mailer] ${subject} sent to ${to} (${info.messageId})`);
+    if (provider === "resend") {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ from: env.emailFrom, to: [to], subject, html }),
+      });
+      if (!response.ok) {
+        console.error(`[mailer] Resend rejected "${subject}" with status ${response.status}`);
+        throw new ApiError(502, "The email provider could not deliver the message. Check the email configuration and try again.");
+      }
+      const result = await response.json();
+      console.info(`[mailer] ${subject} sent via Resend (${result.id || "accepted"})`);
+      return { delivered: true };
+    }
+
+    const info = await createSmtpTransporter().sendMail({ from: env.smtp.from, to, subject, html });
+    console.log(`[mailer] ${subject} sent via SMTP (${info.messageId})`);
     return { delivered: true };
   } catch (err) {
     console.error("[mailer] Email delivery failed:", err.message);
-    if (!env.isProduction) return { delivered: false };
-    throw err;
+    if (err instanceof ApiError) throw err;
+    throw new ApiError(502, "The email provider could not deliver the message. Check the email configuration and try again.");
+  }
+};
+
+const sendOrderEmail = async ({ to, subject, html }) => {
+  if (!emailProvider()) {
+    console.info(`[mailer] Email delivery is not configured; skipped "${subject}".`);
+    return false;
+  }
+  try {
+    const result = await deliver(to, subject, html);
+    return result.delivered;
+  } catch (error) {
+    console.error(`[mailer] Could not send "${subject}":`, error.message);
+    return false;
   }
 };
 
@@ -92,21 +128,6 @@ const orderEmailShell = (heading, content) => `
     <tr><td style="padding:18px 30px;background:#f8fafc;color:#888;font-size:12px">FASCO customer support</td></tr>
   </table>
 </body>`;
-
-const sendOrderEmail = async ({ to, subject, html }) => {
-  if (!transporter) {
-    console.info(`[mailer] SMTP is not configured; skipped "${subject}" for ${to}`);
-    return false;
-  }
-  try {
-    const info = await transporter.sendMail({ from: env.smtp.from, to, subject, html });
-    console.info(`[mailer] ${subject} sent to ${to} (${info.messageId})`);
-    return true;
-  } catch (error) {
-    console.error(`[mailer] Could not send "${subject}" to ${to}:`, error.message);
-    return false;
-  }
-};
 
 export const sendOrderConfirmation = (order) => {
   const name = escapeHtml([order.customer.firstName, order.customer.lastName].filter(Boolean).join(" ") || "Customer");

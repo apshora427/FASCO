@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router"
-import { LuRefreshCw } from "react-icons/lu"
+import { LuRefreshCw, LuSearch, LuX } from "react-icons/lu"
 import ShopHeader from "../components/ShopHeader"
 import ShopBottom from "../components/ShopBottom"
 import { getProducts } from "../api/backend"
 import { resolveImage } from "../data/products"
+import { productMatchesSearch } from "../utils/catalogSearch"
 const money = (value) => `$${Number(value).toFixed(2)}`
 
 const FilterGroup = ({ name, title, open, onToggle, children }) => (
@@ -122,13 +123,19 @@ const Shop = () => {
     setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value])
   const toggleSection = (section) =>
     setOpenSections((state) => ({ ...state, [section]: !state[section] }))
+  const updateSearch = (query) => {
+    setSearch(query)
+    const params = new URLSearchParams(location.search)
+    if (query.trim()) params.set("q", query.trim())
+    else params.delete("q")
+    navigate({ pathname: "/shop", search: params.toString() }, { replace: true })
+  }
 
   const visibleProducts = useMemo(() => {
-    const query = search.trim().toLowerCase()
     const range = priceRanges.find((item) => item.value === price)
 
     const filtered = catalogue.filter((product) => {
-      if (query && !product.title.toLowerCase().includes(query)) return false
+      if (search.trim() && !productMatchesSearch(product, search)) return false
       if (selectedSizes.length && !product.sizes.some((size) => selectedSizes.includes(size))) return false
       if (selectedColors.length && !product.colors.some((color) => selectedColors.includes(color))) return false
       if (range && (product.price < range.min || product.price >= range.max)) return false
@@ -161,8 +168,7 @@ const Shop = () => {
     <main className="page _shop">
       <div className="fasco-ref _shop">
         <ShopHeader onSearch={(query) => {
-          setSearch(query)
-          navigate({ pathname: "/shop", search: query.trim() ? `?q=${encodeURIComponent(query.trim())}` : "" }, { replace: true })
+          updateSearch(query)
         }} />
         <div className="page__fashion fashion">
           <div className="fashion__container">
@@ -313,6 +319,31 @@ const Shop = () => {
                   )}
                   {!loading && !loadError && (
                   <>
+                  <form
+                    className="mb-5 flex w-full items-center rounded-full border border-[#dedfe1] bg-white px-4 py-2.5 shadow-sm dark:border-[#333] dark:bg-[#141414]"
+                    role="search"
+                    onSubmit={(event) => event.preventDefault()}
+                  >
+                    <LuSearch size={18} className="shrink-0 text-[#777] dark:text-[#aaa]" aria-hidden="true" />
+                    <input
+                      type="search"
+                      aria-label="Search products by name, brand, category, color, size, or price"
+                      placeholder="Search products, brands, colors, sizes, or try “blue under $50”"
+                      className="ml-3 min-w-0 flex-1 bg-transparent text-sm text-[#333] outline-none placeholder:text-[#999] dark:text-white"
+                      value={search}
+                      onChange={(event) => updateSearch(event.target.value)}
+                    />
+                    {search && (
+                      <button
+                        type="button"
+                        aria-label="Clear search"
+                        className="ml-2 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[#777] transition hover:bg-[#f4f4f4] hover:text-black dark:hover:bg-[#292929] dark:hover:text-white"
+                        onClick={() => updateSearch("")}
+                      >
+                        <LuX size={16} aria-hidden="true" />
+                      </button>
+                    )}
+                  </form>
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm text-[#6a6a6a] dark:text-[#aaa]" role="status">
                       {visibleProducts.length} product{visibleProducts.length === 1 ? "" : "s"}

@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Link, useNavigate } from "react-router"
+import { useEffect, useState } from "react"
+import { Link, useLocation, useNavigate } from "react-router"
 import { LuHeart, LuSearch, LuShoppingBag, LuUserRound } from "react-icons/lu"
 import { UseStore } from "../context/StoreContext"
 import { UseUser } from "../context/UserContext"
@@ -7,12 +7,17 @@ import { UseUser } from "../context/UserContext"
 const ShopHeader = ({ onSearch }) => {
   const [searchOpen, setSearchOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [query, setQuery] = useState("")
+  const location = useLocation()
+  const [query, setQuery] = useState(() => new URLSearchParams(location.search).get("q") || "")
   const { cartCount, wishlistCount } = UseStore()
   const { currentUser } = UseUser()
   const navigate = useNavigate()
   const accountPath = currentUser?.role === "admin" ? "/admin" : "/account"
   const canAccessSavedItems = currentUser?.role === "user"
+
+  useEffect(() => {
+    setQuery(new URLSearchParams(location.search).get("q") || "")
+  }, [location.search])
 
   const submitSearch = (event) => {
     event.preventDefault()

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { env } from "../config/env.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { emailProvider } from "../utils/mailer.js";
 
 const startedAt = Date.now();
 
@@ -18,7 +18,10 @@ export const getHealth = (_req, res) => {
 export const getReadiness = asyncHandler(async (_req, res) => {
   const checks = {
     database: { status: "unavailable", topology: "unknown" },
-    email: { status: env.smtp.user && env.smtp.pass ? "configured" : "not_configured" },
+    email: {
+      status: emailProvider() ? "configured" : "not_configured",
+      provider: emailProvider(),
+    },
   };
   let ready = mongoose.connection.readyState === 1 && Boolean(mongoose.connection.db);
 

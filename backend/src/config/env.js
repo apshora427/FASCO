@@ -14,11 +14,18 @@ export const env = {
   isProduction: (process.env.NODE_ENV || "development") === "production",
   // frontend/src/api/backend.js falls back to http://localhost:8000/api/v1
   port: toPort(process.env.PORT, 8000),
-  clientOrigins: (process.env.CLIENT_ORIGIN || "http://localhost:5173")
+  clientOrigins: [
+    ...(process.env.CLIENT_ORIGIN ||
+    (process.env.NODE_ENV === "production" ? "" : "http://localhost:5173"))
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),
-  trustProxy: process.env.TRUST_PROXY === "true",
+    ...[
+      process.env.VERCEL_URL,
+      process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    ].filter(Boolean).map((host) => `https://${host}`),
+  ],
+  trustProxy: process.env.TRUST_PROXY === "true" || process.env.VERCEL === "1",
   apiPrefix: "/api/v1",
   mongoUri: process.env.MONGODB_URI || null,
 
@@ -31,15 +38,16 @@ export const env = {
   adminPassword: process.env.ADMIN_PASSWORD || "",
   googleClientId: process.env.GOOGLE_CLIENT_ID || "",
 
-  // --- email (nodemailer / SMTP) ------------------------------------------
-  // SMTP credentials are required to deliver confirmation and reset codes.
+  // --- email (Resend API or SMTP) -----------------------------------------
+  resendApiKey: process.env.RESEND_API_KEY || "",
+  emailFrom: process.env.EMAIL_FROM || process.env.SMTP_FROM || '"FASCO" <hello@fasco.test>',
   smtp: {
     host: process.env.SMTP_HOST || "sandbox.smtp.mailtrap.io",
     port: toPort(process.env.SMTP_PORT, 2525),
     secure: process.env.SMTP_SECURE === "true",
     user: process.env.SMTP_USER || "",
     pass: process.env.SMTP_PASS || "",
-    from: process.env.SMTP_FROM || '"FASCO" <hello@fasco.test>',
+    from: process.env.EMAIL_FROM || process.env.SMTP_FROM || '"FASCO" <hello@fasco.test>',
   },
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
@@ -53,8 +61,8 @@ if (env.isProduction) {
   if (!process.env.MONGODB_URI) {
     throw new Error("MONGODB_URI must be configured in production");
   }
-  if (!process.env.CLIENT_ORIGIN || env.clientOrigins.length === 0) {
-    throw new Error("CLIENT_ORIGIN must be configured in production");
+  if (env.clientOrigins.length === 0) {
+    throw new Error("CLIENT_ORIGIN or a Vercel deployment URL must be configured in production");
   }
   for (const origin of env.clientOrigins) {
     let parsedOrigin;
@@ -67,7 +75,10 @@ if (env.isProduction) {
       throw new Error("Production CLIENT_ORIGIN values must be HTTPS origins without paths");
     }
   }
-  if (!env.smtp.user || !env.smtp.pass) {
-    throw new Error("SMTP_USER and SMTP_PASS must be configured in production");
+  if (!env.resendApiKey && !(env.smtp.user && env.smtp.pass)) {
+    throw new Error("Configure RESEND_API_KEY or SMTP_USER and SMTP_PASS in production");
+  }
+  if (env.resendApiKey && !process.env.EMAIL_FROM) {
+    throw new Error("EMAIL_FROM must be a verified sender address when using Resend in production");
   }
 }

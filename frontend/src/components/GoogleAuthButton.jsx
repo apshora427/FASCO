@@ -9,7 +9,7 @@ export default function GoogleAuthButton({ label, onCredential }) {
     return (
       <button
         type="button"
-        onClick={() => toast.info("Google sign-in is not configured yet.")}
+        onClick={() => toast.info("Configure GOOGLE_CLIENT_ID and VITE_GOOGLE_CLIENT_ID to enable Google sign-in.")}
         className="flex min-h-10 w-full items-center justify-center gap-2 rounded border border-[#dedfe1] px-2 text-[10px] text-[#777] transition hover:border-[#999]"
         aria-label={`${label} (not configured)`}
       >

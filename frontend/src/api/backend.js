@@ -1,4 +1,6 @@
-const BASE_URL = import.meta.env.VITE_AUTH_URL || "http://localhost:8000/api/v1"
+const BASE_URL =
+  import.meta.env.VITE_AUTH_URL ||
+  (import.meta.env.PROD ? "/api/v1" : "http://localhost:8000/api/v1")
 
 // Persistent sign-ins use localStorage; temporary sign-ins use sessionStorage.
 const TOKEN_KEY = "fasco_token"

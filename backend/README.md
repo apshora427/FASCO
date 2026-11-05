@@ -77,7 +77,7 @@ are intentionally not included in GitHub.
    `backend/`.
 2. Visit <http://localhost:8000/api/v1/health/ready>. A working local setup
    returns `status: "ready"`, a MongoDB topology of `replica_set`, and whether
-   SMTP is configured. The older `/health` endpoint is a liveness check only.
+   an email provider is configured. The older `/health` endpoint is a liveness check only.
 3. Visit <http://localhost:8000/api/v1/product>. On a fresh database, the
    first boot seeds 18 products.
 4. Visit <http://localhost:8000/api/v1/homepage> to verify homepage content,
@@ -95,8 +95,8 @@ are intentionally not included in GitHub.
    Use its returned `userInfo.accesstoken` as the raw `Authorization` header
    for `GET /api/v1/users`, `GET /api/v1/dashboard/stats`, and other admin
    endpoints.
-7. To test real verification and password-recovery mail, configure SMTP using
-   the steps below, restart, and register an email address you can access.
+7. To test real verification and password-recovery mail, configure Resend or
+   SMTP using the steps below, restart, and register an email address you can access.
    The password-recovery email contains a **6-digit, 10-minute code**, not a
    password-reset link. Enter that code in the recovery flow and choose a new
    password. Never commit `.env` or paste mail credentials into source files.
@@ -105,7 +105,58 @@ are intentionally not included in GitHub.
    transactions, coupons, orders, and other API flows against a temporary
    MongoDB replica set.
 
-### Configure a Mailtrap test inbox
+### Vercel deployment
+
+The root `vercel.json` deploys the `backend` Express service and `frontend`
+Vite service under one domain. `/api/*` is routed to Express; all other paths
+go to the SPA. The frontend calls the same-domain `/api/v1` path in production.
+No service binding is needed because the browser uses the public rewrite and
+the frontend is a static build, not a server-side service caller.
+
+Configure these production environment variables for the `backend` service:
+
+- `MONGODB_URI`: an externally hosted MongoDB replica-set or sharded-cluster
+  URI (for example, MongoDB Atlas). The local automatic database cannot run
+  inside a Vercel Function.
+- `JWT_SECRET`: a private random value with at least 32 characters.
+- Either `RESEND_API_KEY` and `EMAIL_FROM` (a sender address verified by Resend)
+  or `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and
+  `SMTP_FROM`. Resend delivers to real inboxes; Mailtrap SMTP is useful for
+  test-only inbox capture. Keep all credentials private.
+- `GOOGLE_CLIENT_ID` on the backend and the same value as
+  `VITE_GOOGLE_CLIENT_ID` on the frontend to enable Google sign-in/sign-up.
+- `ADMIN_EMAIL` and `ADMIN_PASSWORD`: administrator login credentials.
+- `BLOB_READ_WRITE_TOKEN`: connect a Vercel Blob store to the backend service
+  to enable durable product-image uploads.
+
+Set `VITE_AUTH_URL` only if you deliberately want to call an API on a
+different origin; otherwise leave it unset so the app uses `/api/v1`.
+Vercel's deployment URL is allowed automatically for API CORS.
+
+Product image uploads use Vercel Blob in production and local disk during
+development. Create a Blob store and connect it to the Vercel project so
+`BLOB_READ_WRITE_TOKEN` is available to the backend; production uploads fail
+with a clear configuration error if the token is missing. Vercel's server
+request-size limit means uploads are capped at 4 MiB there (5 MiB locally).
+Blob URLs are stored on products directly; local `/uploads/*` files are not
+shared with or persisted by Vercel.
+
+### Configure email delivery
+
+For real inbox delivery, create a Resend account, verify a sender domain/address,
+and set `RESEND_API_KEY` and `EMAIL_FROM` in `backend/.env` (and in Vercel's
+backend environment settings for deployment):
+
+```dotenv
+RESEND_API_KEY=re_...
+EMAIL_FROM="FASCO <noreply@your-verified-domain.com>"
+```
+
+Resend is preferred when you want verification and recovery codes delivered to
+real or temporary email inboxes. The sender must be verified by Resend. Never
+commit the API key.
+
+Alternatively, configure a Mailtrap test inbox:
 
 Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and
 `SMTP_FROM` in the local `backend/.env` using the SMTP settings shown in your
@@ -124,19 +175,21 @@ SMTP_PASS=your-mailtrap-sandbox-password
 SMTP_FROM="FASCO" <hello@fasco.test>
 ```
 
-After restarting the API, readiness reports `checks.email.status: "configured"`.
-Register a new user and find the confirmation code in the Mailtrap inbox.
+After restarting the API, readiness reports `checks.email.status: "configured"`
+and the selected provider. Register a new user and find the confirmation code
+in the configured inbox.
 New accounts are stored with `isVerified: false`; login is blocked until the
 code is entered on the confirmation screen. The **Resend** action requests a
 fresh code if needed. `POST /api/v1/forgot-password` sends a reset code to the
-same Mailtrap inbox without revealing whether an account exists. Codes expire
-after ten minutes. The automated test verifies signup confirmation without
-external SMTP. `configured` only means SMTP credentials are present; confirm
-delivery by completing a signup and checking the sandbox inbox.
+configured provider without revealing whether an account exists. Codes expire
+after ten minutes. If email delivery is unavailable, signup/reset now returns
+an explicit error and clears the unsent code; it never sends the user to a
+confirmation screen that cannot work. Invalid codes are rejected by the
+server, expire after ten minutes, and lock after repeated incorrect attempts.
 
 Mailtrap is an email-testing sandbox, not a public disposable-mail provider.
-To deliver to an actual temporary inbox, configure an SMTP provider that
-permits delivery to that inbox instead.
+To deliver to an actual temporary inbox, configure Resend or another email
+provider that permits delivery to that inbox.
 
 ### Demonstrate a password reset with the API
 
@@ -250,12 +303,11 @@ Product creation requires `title`, `price`, `category`, and `image`; optional
 fields include `originalPrice`, `discount`, `brand`, `rating`, `reviews`,
 `tag`, `images`, `sizes`, `colors`, `stock`, and `arrival`. Prices and stock
 are validated on the server and category must refer to an existing category.
-Product image uploads accept JPEG, PNG, or WebP content up to 5 MB per file;
-the server checks the declared MIME type against the file signature. Files are
-stored in `backend/uploads` and served from `/uploads`. This local-disk storage
-is suitable for development and single-instance deployments with a persistent
-volume; production deployments with ephemeral or multiple instances should
-configure durable shared object storage before enabling uploads.
+Product image uploads accept JPEG, PNG, or WebP content; the server checks the
+declared MIME type against the file signature. Uploads are limited to 5 MiB
+locally and 4 MiB on Vercel. Local files are stored in `backend/uploads` and
+served from `/uploads`; on Vercel, uploads are stored in Blob and the resulting
+public URL is saved directly on the product.
 
 Homepage copy and layout data are stored in the `homepagecontents` MongoDB
 collection. The initial content is seeded only when that record is absent;
@@ -342,9 +394,9 @@ unpaid order first expires its still-open Stripe session; if payment has
 already completed, cancellation is rejected until the payment webhook updates
 the order.
 
-Order confirmation and status update emails use the configured SMTP account.
-Payment confirmation emails remain queued for background retry when SMTP is
-missing or delivery fails. Status-update emails remain best-effort and failures
+Order confirmation and status update emails use the configured email provider.
+Payment confirmation emails remain queued for background retry when email
+delivery is unavailable or fails. Status-update emails remain best-effort and failures
 are logged; neither email failure changes the order API result.
 
 ### Reviews and admin operations
@@ -374,9 +426,12 @@ to 1000 characters.
 
 Email-based signups must verify the emailed code; verification returns a customer
 session so the customer can continue without logging in again. Google sign-in
-verifies the ID token on the server and accepts only Google-verified email
-addresses. Configure the same Web client ID as `GOOGLE_CLIENT_ID` in the backend
-and `VITE_GOOGLE_CLIENT_ID` in the frontend.
+and sign-up verify the ID token on the server and accept only Google-verified
+email addresses. Create an OAuth 2.0 Web client in Google Cloud, add each
+frontend origin to its authorized JavaScript origins, and configure the same
+Web client ID as `GOOGLE_CLIENT_ID` in the backend and `VITE_GOOGLE_CLIENT_ID`
+in the frontend. On Vercel, set the value for both the backend service and
+frontend build.
 
 | Method and path | Access | Request | Success response |
 | --- | --- | --- | --- |
@@ -386,7 +441,7 @@ and `VITE_GOOGLE_CLIENT_ID` in the frontend.
 | `POST /revarify-email` | Public | `{ email }` | `{ message, emailSent }` |
 | `POST /login` | Public | `{ email, password, role }` | `{ userInfo: { id, name, email, role, accesstoken } }` |
 | `POST /google` | Public | `{ credential, role }` | `{ userInfo }` |
-| `POST /forgot-password` | Public | `{ email }` | Generic confirmation message; code is emailed when SMTP is configured |
+| `POST /forgot-password` | Public | `{ email }` | Generic confirmation message; code is emailed when a provider is configured |
 | `POST /setnew-password` | Public | `{ email, code, newPassword, confirmPassword }` | `{ message }` |
 | `GET /me` | Customer/Admin | — | `{ user }` |
 | `POST /logout` | Customer/Admin | — | `{ message }` |
@@ -424,5 +479,7 @@ asserted.
 | `JWT_SECRET`   | development-only fallback | Must be a random value of at least 32 characters in production |
 | `JWT_EXPIRES_IN` | `7d`                     | Access-token lifetime           |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | `admin@fasco.com` / unset | First admin seed credentials |
-| `GOOGLE_CLIENT_ID` | unset                 | Optional Google Identity Services client id |
-| `SMTP_USER` / `SMTP_PASS` | unset          | Required for email confirmation, reset, and account-change codes |
+| `GOOGLE_CLIENT_ID` | unset                 | Google Identity Services Web client id |
+| `VITE_GOOGLE_CLIENT_ID` | unset            | Same client id, exposed to the frontend build |
+| `RESEND_API_KEY` / `EMAIL_FROM` | unset     | Resend API key and verified sender; preferred for real inbox delivery |
+| `SMTP_USER` / `SMTP_PASS` | unset          | Alternative SMTP authentication for confirmation, reset, and account-change codes |

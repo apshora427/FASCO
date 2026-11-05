@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { put } from "@vercel/blob";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ensureUploadsDirectory, uploadsDirectory } from "../utils/uploadStorage.js";
@@ -31,8 +32,27 @@ export const uploadProductImage = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Image content does not match its declared file type");
   }
 
-  await ensureUploadsDirectory();
   const filename = `${crypto.randomUUID()}.${image.extension}`;
+  if (process.env.VERCEL === "1") {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      throw new ApiError(503, "Image storage is not configured");
+    }
+
+    const blob = await put(filename, req.file.buffer, {
+      access: "public",
+      addRandomSuffix: false,
+      contentType: image.mime,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+    res.status(201).json({
+      success: true,
+      message: "Image uploaded",
+      imageUrl: blob.url,
+    });
+    return;
+  }
+
+  await ensureUploadsDirectory();
   await writeFile(join(uploadsDirectory, filename), req.file.buffer, { flag: "wx" });
   const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${filename}`;
   res.status(201).json({ success: true, message: "Image uploaded", imageUrl });

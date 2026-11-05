@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Link, useNavigate } from "react-router"
+import { useEffect, useState } from "react"
+import { Link, useLocation, useNavigate } from "react-router"
 import { LuChevronDown, LuHeart, LuMenu, LuSearch, LuShoppingBag, LuUser, LuX } from "react-icons/lu"
 import { UseStore } from "../context/StoreContext"
 import { UseUser } from "../context/UserContext"
@@ -51,6 +51,7 @@ const Navbar = ({ variant = "home", homeLinks = [], brandName = "FASCO" }) => {
   const [pagesOpen, setPagesOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const location = useLocation()
   const { cartCount, wishlistCount } = UseStore()
   const { currentUser, logOut } = UseUser()
   const navigate = useNavigate()
@@ -58,6 +59,10 @@ const Navbar = ({ variant = "home", homeLinks = [], brandName = "FASCO" }) => {
   const links = isShop ? shopLinks : homeLinks
   const accountPath = currentUser?.role === "admin" ? "/admin" : "/account"
   const canAccessSavedItems = currentUser?.role === "user"
+
+  useEffect(() => {
+    setSearchQuery(new URLSearchParams(location.search).get("q") || "")
+  }, [location.search])
 
   const submitSearch = (event) => {
     event.preventDefault()
@@ -123,6 +128,20 @@ const Navbar = ({ variant = "home", homeLinks = [], brandName = "FASCO" }) => {
           </nav>
 
           <div className="hidden items-center md:flex" style={{ gap: "clamp(20px, 4.03vw, 58px)" }}>
+            {!isShop && (
+              <div className="relative">
+                {searchOpen ? (
+                  <form onSubmit={submitSearch} className="flex items-center rounded-full border border-[#dedfe1] bg-white px-3 py-1">
+                    <input autoFocus aria-label="Search products" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search products" className="w-36 bg-transparent text-xs outline-none" />
+                    <button type="submit" aria-label="Submit search" className="p-1 text-[#484848]"><LuSearch size={17} /></button>
+                  </form>
+                ) : (
+                  <button type="button" aria-label="Search products" onClick={() => setSearchOpen(true)} className="transition-colors hover:text-black">
+                    <LuSearch size={22} />
+                  </button>
+                )}
+              </div>
+            )}
             {isShop ? (
               <div className="flex items-center gap-5 text-[#484848]">
                 {searchOpen ? (
