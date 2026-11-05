@@ -119,10 +119,14 @@ Configure these production environment variables for the `backend` service:
   URI (for example, MongoDB Atlas). The local automatic database cannot run
   inside a Vercel Function.
 - `JWT_SECRET`: a private random value with at least 32 characters.
-- Either `RESEND_API_KEY` and `EMAIL_FROM` (a sender address verified by Resend)
-  or `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and
-  `SMTP_FROM`. Resend delivers to real inboxes; Mailtrap SMTP is useful for
-  test-only inbox capture. Keep all credentials private.
+- Email is optional for starting the storefront. To enable verification and
+  recovery messages, configure either `RESEND_API_KEY` and `EMAIL_FROM` (a
+  sender address verified by Resend) or `SMTP_HOST`, `SMTP_PORT`,
+  `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM`. Without a provider,
+  email-dependent authentication actions return an explicit delivery error;
+  they do not prevent homepage and catalog requests from working.
+  Resend delivers to real inboxes; Mailtrap SMTP is useful for test-only inbox
+  capture. Keep all credentials private.
 - `GOOGLE_CLIENT_ID` on the backend and the same value as
   `VITE_GOOGLE_CLIENT_ID` on the frontend to enable Google sign-in/sign-up.
 - `ADMIN_EMAIL` and `ADMIN_PASSWORD`: administrator login credentials.

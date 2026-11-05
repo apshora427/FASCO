@@ -75,9 +75,6 @@ if (env.isProduction) {
       throw new Error("Production CLIENT_ORIGIN values must be HTTPS origins without paths");
     }
   }
-  if (!env.resendApiKey && !(env.smtp.user && env.smtp.pass)) {
-    throw new Error("Configure RESEND_API_KEY or SMTP_USER and SMTP_PASS in production");
-  }
   if (env.resendApiKey && !process.env.EMAIL_FROM) {
     throw new Error("EMAIL_FROM must be a verified sender address when using Resend in production");
   }
