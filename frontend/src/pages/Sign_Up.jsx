@@ -67,13 +67,10 @@ export default function Sign_Up() {
         state: {
           flow: "signup",
           email: email.trim(),
+          emailSent: result.emailSent,
           from: requestedLocation,
         },
       })
-
-      if (result?.devCode) {
-        toast.info(`Development confirmation code: ${result.devCode}`)
-      }
     } catch {
       // UserContext displays the backend error.
       // Keep the entered fields so the user can correct them.
@@ -112,6 +109,9 @@ export default function Sign_Up() {
           <span>OR</span>
           <span className="h-px flex-1 bg-[#dedfe1]" />
         </div>
+        <p className="mb-4 text-center text-[11px] leading-relaxed text-[#777]">
+          Google verifies your email automatically. Email signups receive a confirmation code in their inbox.
+        </p>
 
         <form
           className="form-signup"

@@ -14,9 +14,9 @@ function SectionHead({ text, para }) {
 
       <motion.div
         ref={ref}
-        initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
         animate={inView ? { opacity: 1, y: 0 } : {}}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.38, ease: "easeOut" }}>
+        transition={{ duration: prefersReducedMotion ? 0 : 0.48, ease: [0.22, 1, 0.36, 1] }}>
         <h5 className="text-[36px] font-Display font-semibold leading-[48px] text-black dark:text-white mb-[60px]">
           {para}
         </h5>

@@ -1,8 +1,8 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env.js";
 
-// SMTP is optional in dev: without credentials we log the code instead of
-// failing, so the Confirmation screen flow always works locally.
+// SMTP is optional in development, but verification codes are never returned
+// to the browser as a fallback.
 const hasSmtp = Boolean(env.smtp.user && env.smtp.pass);
 
 const transporter = hasSmtp
@@ -47,9 +47,10 @@ const escapeHtml = (value) =>
     "'": "&#39;",
   })[character]);
 
-const deliver = async (to, subject, html, code) => {
+const deliver = async (to, subject, html) => {
   if (!transporter) {
-    return { delivered: false, code };
+    console.warn(`[mailer] SMTP is not configured; could not send "${subject}" to ${to}.`);
+    return { delivered: false };
   }
   try {
     const info = await transporter.sendMail({ from: env.smtp.from, to, subject, html });
@@ -57,10 +58,7 @@ const deliver = async (to, subject, html, code) => {
     return { delivered: true };
   } catch (err) {
     console.error("[mailer] Email delivery failed:", err.message);
-    // surface the code anyway in dev so a broken SMTP never locks anyone out
-    if (!env.isProduction) {
-      return { delivered: false, code };
-    }
+    if (!env.isProduction) return { delivered: false };
     throw err;
   }
 };
@@ -69,24 +67,21 @@ export const sendVerificationEmail = ({ to, name, code }) =>
   deliver(
     to,
     "Verify your email",
-    shell("Verify Your Email", name, code, "Thanks for signing up at FASCO. Enter this confirmation code to activate your account."),
-    code
+    shell("Verify Your Email", name, code, "Thanks for signing up at FASCO. Enter this confirmation code to activate your account.")
   );
 
 export const sendPasswordResetEmail = ({ to, name, code }) =>
   deliver(
     to,
     "Reset your password",
-    shell("Reset Your Password", name, code, "We received a request to reset your FASCO password. Use the code below to choose a new one."),
-    code
+    shell("Reset Your Password", name, code, "We received a request to reset your FASCO password. Use the code below to choose a new one.")
   );
 
 export const sendEmailChangeVerification = ({ to, name, code }) =>
   deliver(
     to,
     "Confirm your new FASCO email",
-    shell("Confirm Your New Email", name, code, "Use this code to confirm the new email address for your FASCO account."),
-    code
+    shell("Confirm Your New Email", name, code, "Use this code to confirm the new email address for your FASCO account.")
   );
 
 const orderEmailShell = (heading, content) => `

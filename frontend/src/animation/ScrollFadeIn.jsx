@@ -13,10 +13,10 @@ const ScrollFadeIn = ({ children, delay = 0 }) => {
   return (
     <motion.div
       ref={ref}
-      initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{
-        duration: prefersReducedMotion ? 0 : 0.48,
+        duration: prefersReducedMotion ? 0 : 0.58,
         ease: "easeOut",
         delay: prefersReducedMotion ? 0 : delay,
       }}

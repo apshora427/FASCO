@@ -32,8 +32,7 @@ export const env = {
   googleClientId: process.env.GOOGLE_CLIENT_ID || "",
 
   // --- email (nodemailer / SMTP) ------------------------------------------
-  // When SMTP_USER/SMTP_PASS are absent the mailer falls back to logging the
-  // confirmation code to the backend console so dev flows never dead-end.
+  // SMTP credentials are required to deliver confirmation and reset codes.
   smtp: {
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: toPort(process.env.SMTP_PORT, 587),

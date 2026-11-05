@@ -8,7 +8,8 @@ const revealSelector = [
   "main > div > .container",
   "main > div > section",
   "main > div > div > section",
-  "main article",
+  "main article:not(#deals article)",
+  "main a.group.block",
   "main .catalog__card",
   "main .sign__image",
   "main .sign__body",
@@ -22,7 +23,8 @@ const revealSelector = [
 ].join(",")
 
 const cardSelector = [
-  "main article",
+  "main article:not(#deals article)",
+  "main a.group.block",
   "main .catalog__card",
   "main .account-panel",
   "main .account-order",
@@ -60,7 +62,7 @@ const SectionMotion = () => {
         element.classList.add("motion-card")
         const siblings = [...element.parentElement.children].filter((sibling) => sibling.matches(cardSelector))
         const index = siblings.indexOf(element)
-        element.style.setProperty("--motion-delay", `${Math.min(index, 4) * 45}ms`)
+        element.style.setProperty("--motion-delay", `${Math.min(index, 5) * 55}ms`)
       }
 
       if (prefersReducedMotion || !observer) {

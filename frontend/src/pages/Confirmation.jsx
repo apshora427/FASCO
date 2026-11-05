@@ -20,6 +20,7 @@ const Confirmation = () => {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
+  const [emailSent, setEmailSent] = useState(location.state?.emailSent !== false);
 
   const isSignup = location.state?.flow === "signup";
   const email = location.state?.email || "";
@@ -38,12 +39,17 @@ const Confirmation = () => {
 
     try {
       if (isSignup) {
-        // Signup: verify the email and consume the verification code.
         await confirmCode(email, cleanCode);
-        navigate("/login", {
-          replace: true,
-          state: { email, from: location.state?.from },
-        });
+        const from = location.state?.from;
+        const safePath = typeof from === "string" && from.startsWith("/") && !from.startsWith("//")
+          ? from
+          : from && typeof from === "object" &&
+            typeof from.pathname === "string" &&
+            from.pathname.startsWith("/") &&
+            !from.pathname.startsWith("//")
+            ? { pathname: from.pathname, search: from.search || "", hash: from.hash || "" }
+            : "/";
+        navigate(safePath, { replace: true });
       } else {
         // Password recovery: validate the code but keep it for the
         // new-password request.
@@ -86,9 +92,12 @@ const Confirmation = () => {
 
       if (result?.success) {
         setCode("");
-        toast.success(
-          result.message || "A new code has been sent"
-        );
+        setEmailSent(result.emailSent !== false);
+        if (result.emailSent === false) {
+          toast.error(result.message || "Could not send the code");
+        } else {
+          toast.success(result.message || "A new code has been sent");
+        }
       } else {
         toast.error(
           result?.message || "Could not resend the code"
@@ -117,6 +126,11 @@ const Confirmation = () => {
             <span className="font-semibold text-black">
               {email}
             </span>
+          </p>
+        )}
+        {isSignup && !emailSent && (
+          <p role="status" className="mt-3 text-center text-[13px] text-amber-700">
+            We couldn't send the email right now. Use Resend after email service is available.
           </p>
         )}
       </div>

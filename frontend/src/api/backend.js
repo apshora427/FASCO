@@ -358,6 +358,26 @@ export const getProducts = async (category) => {
   }
 }
 
+export const getHomepage = async () => {
+  try {
+    const data = await request("/homepage")
+    return data?.success ? data : null
+  } catch {
+    return null
+  }
+}
+
+export const updateHomepage = async (content) => {
+  try {
+    return await authed("/homepage", {
+      method: "PUT",
+      body: JSON.stringify({ content }),
+    })
+  } catch {
+    return null
+  }
+}
+
 export const getProductReviews = async (id) => {
   try {
     return await request(`/product/${id}/reviews`)
@@ -380,6 +400,27 @@ export const createProductReview = async (id, fields) => {
 export const getWishlist = async () => {
   try {
     return await authed("/wishlist")
+  } catch {
+    return null
+  }
+}
+
+export const trackRecommendationEvent = async (productId, eventType) => {
+  try {
+    return await authed("/recommendations/events", {
+      method: "POST",
+      body: JSON.stringify({ productId, eventType }),
+    })
+  } catch {
+    return null
+  }
+}
+
+export const getRecommendations = async ({ excludeProductId, limit = 8 } = {}) => {
+  try {
+    const query = new URLSearchParams({ limit: String(limit) })
+    if (excludeProductId) query.set("excludeProductId", String(excludeProductId))
+    return await authed(`/recommendations?${query}`)
   } catch {
     return null
   }

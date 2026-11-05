@@ -148,9 +148,12 @@ export default function Account() {
         toast.error(result?.message || "Could not send a confirmation code")
         return
       }
+      if (result.emailSent === false) {
+        toast.error(result.message || "Could not send a confirmation code")
+        return
+      }
       setEmailCodeSent(true)
       toast.success(result.message)
-      if (result.devCode) toast.info(`Development confirmation code: ${result.devCode}`)
     } finally {
       setBusyEmail(false)
     }

@@ -4,13 +4,6 @@ import { LuChevronDown, LuHeart, LuMenu, LuSearch, LuShoppingBag, LuUser, LuX } 
 import { UseStore } from "../context/StoreContext"
 import { UseUser } from "../context/UserContext"
 
-const homeLinks = [
-  { label: "Home", to: "/" },
-  { label: "Deals", href: "/#deals" },
-  { label: "New Arrivals", href: "/#new-arrivals" },
-  { label: "Reviews", href: "/#testimonials" },
-]
-
 const shopLinks = [
   { label: "Home", to: "/" },
   { label: "Shop", to: "/shop" },
@@ -53,7 +46,7 @@ const AccountIdentity = ({ user }) => (
   </span>
 )
 
-const Navbar = ({ variant = "home" }) => {
+const Navbar = ({ variant = "home", homeLinks = [], brandName = "FASCO" }) => {
   const [open, setOpen] = useState(false)
   const [pagesOpen, setPagesOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -64,6 +57,7 @@ const Navbar = ({ variant = "home" }) => {
   const isShop = variant === "shop"
   const links = isShop ? shopLinks : homeLinks
   const accountPath = currentUser?.role === "admin" ? "/admin" : "/account"
+  const canAccessSavedItems = currentUser?.role === "user"
 
   const submitSearch = (event) => {
     event.preventDefault()
@@ -94,7 +88,7 @@ const Navbar = ({ variant = "home" }) => {
             to="/"
             className="font-Display leading-none text-[#484848]"
             style={{ fontSize: "clamp(36px, 3.63vw, 52px)" }}>
-            FASCO
+            {brandName}
           </Link>
 
           <nav
@@ -119,8 +113,8 @@ const Navbar = ({ variant = "home" }) => {
                 </button>
                 {pagesOpen && (
                   <div className="absolute right-0 top-full z-50 mt-3 grid min-w-44 gap-1 rounded-xl border border-[#eeeae4] bg-white p-2 shadow-xl">
-                    <Link to="/cart" onClick={() => setPagesOpen(false)} className="rounded-lg px-3 py-2 text-sm text-[#484848] hover:bg-[#f7f5f1]">Shopping cart</Link>
-                    <Link to={currentUser ? "/wishlist" : "/login"} state={!currentUser ? { from: "/wishlist" } : undefined} onClick={() => setPagesOpen(false)} className="rounded-lg px-3 py-2 text-sm text-[#484848] hover:bg-[#f7f5f1]">Wishlist</Link>
+                    <Link to={canAccessSavedItems ? "/cart" : "/login"} state={!canAccessSavedItems ? { from: "/cart" } : undefined} onClick={() => setPagesOpen(false)} className="rounded-lg px-3 py-2 text-sm text-[#484848] hover:bg-[#f7f5f1]">Shopping cart</Link>
+                    <Link to={canAccessSavedItems ? "/wishlist" : "/login"} state={!canAccessSavedItems ? { from: "/wishlist" } : undefined} onClick={() => setPagesOpen(false)} className="rounded-lg px-3 py-2 text-sm text-[#484848] hover:bg-[#f7f5f1]">Wishlist</Link>
                     <Link to={currentUser ? accountPath : "/login"} state={!currentUser ? { from: "/account" } : undefined} onClick={() => setPagesOpen(false)} className="rounded-lg px-3 py-2 text-sm text-[#484848] hover:bg-[#f7f5f1]">{currentUser?.role === "admin" ? "Dashboard" : "My account"}</Link>
                   </div>
                 )}
@@ -148,17 +142,17 @@ const Navbar = ({ variant = "home" }) => {
                   className="transition-colors hover:text-black">
                   {currentUser ? <AccountIdentity user={currentUser} /> : <LuUser size={22} />}
                 </Link>
-                <Link to={currentUser ? "/wishlist" : "/login"} state={!currentUser ? { from: "/wishlist" } : undefined} aria-label="Wishlist" className="relative transition-colors hover:text-black">
+                <Link to={canAccessSavedItems ? "/wishlist" : "/login"} state={!canAccessSavedItems ? { from: "/wishlist" } : undefined} aria-label="Wishlist" className="relative transition-colors hover:text-black">
                   <LuHeart size={22} />
-                  {wishlistCount > 0 && (
+                  {canAccessSavedItems && wishlistCount > 0 && (
                     <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ff706b] px-1 text-[10px] text-white">
                       {wishlistCount}
                     </span>
                   )}
                 </Link>
-                <Link to="/cart" aria-label="Cart" className="relative transition-colors hover:text-black">
+                <Link to={canAccessSavedItems ? "/cart" : "/login"} state={!canAccessSavedItems ? { from: "/cart" } : undefined} aria-label="Cart" className="relative transition-colors hover:text-black">
                   <LuShoppingBag size={22} />
-                  {cartCount > 0 && (
+                  {canAccessSavedItems && cartCount > 0 && (
                     <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ff706b] px-1 text-[10px] text-white">
                       {cartCount}
                     </span>
@@ -278,10 +272,10 @@ const Navbar = ({ variant = "home" }) => {
             <Link to={currentUser ? accountPath : "/login"} onClick={() => setOpen(false)} aria-label="Account">
               {currentUser ? <AccountIdentity user={currentUser} /> : <LuUser size={22} />}
             </Link>
-            <Link to={currentUser ? "/wishlist" : "/login"} state={!currentUser ? { from: "/wishlist" } : undefined} onClick={() => setOpen(false)} aria-label="Wishlist"><LuHeart size={22} /></Link>
-            <Link to="/cart" onClick={() => setOpen(false)} aria-label="Cart" className="relative">
+            <Link to={canAccessSavedItems ? "/wishlist" : "/login"} state={!canAccessSavedItems ? { from: "/wishlist" } : undefined} onClick={() => setOpen(false)} aria-label="Wishlist"><LuHeart size={22} /></Link>
+            <Link to={canAccessSavedItems ? "/cart" : "/login"} state={!canAccessSavedItems ? { from: "/cart" } : undefined} onClick={() => setOpen(false)} aria-label="Cart" className="relative">
               <LuShoppingBag size={22} />
-              {cartCount > 0 && (
+              {canAccessSavedItems && cartCount > 0 && (
                 <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ff706b] px-1 text-[10px] text-white">
                   {cartCount}
                 </span>

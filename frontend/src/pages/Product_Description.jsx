@@ -20,6 +20,7 @@ import DealsOfTheMonth from "../components/DealsOfTheMonth"
 import Newsletter from "../components/Newsletter"
 import Footer from "../components/Footer"
 import ProductReviews from "../components/ProductReviews"
+import PersonalizedRecommendations from "../components/PersonalizedRecommendations"
 import { products, formatPrice, resolveImage } from "../data/products"
 import { getProduct } from "../api/backend"
 import { UseStore } from "../context/StoreContext"
@@ -490,6 +491,7 @@ const Product_Description = () => {
                   : current)
               }}
             />
+            <PersonalizedRecommendations excludeProductId={product.id} />
           </>
         ) : remote.status === "pending" ? (
           <div className="py-[60px] text-center">

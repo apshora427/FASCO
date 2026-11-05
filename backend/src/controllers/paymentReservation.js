@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import mongoose from "mongoose";
 import { Coupon } from "../models/coupon.model.js";
 import { Order } from "../models/order.model.js";
 import { Product } from "../models/product.model.js";
@@ -6,51 +7,48 @@ import { env } from "../config/env.js";
 import { ApiError } from "../utils/ApiError.js";
 
 export const releaseUnpaidOrder = async (orderId, paymentStatus, paymentSessionId) => {
-  const filter = { _id: orderId, status: "pending", paymentStatus: "unpaid" };
-  if (paymentSessionId) filter.paymentSessionId = paymentSessionId;
-  const order = await Order.findOneAndUpdate(
-    filter,
-    { $set: { status: "cancelled", paymentStatus } },
-    { returnDocument: "after" }
-  );
-  if (!order) return false;
-
-  const quantities = new Map();
-  for (const item of order.items) {
-    quantities.set(item.productId, (quantities.get(item.productId) || 0) + item.quantity);
-  }
-
-  const restocked = [];
-  let couponRestored = false;
+  const session = await mongoose.startSession();
   try {
-    for (const [productId, quantity] of quantities) {
-      const result = await Product.updateOne({ id: productId }, { $inc: { stock: quantity } });
-      if (result.matchedCount !== 1) throw new ApiError(409, "A reserved product no longer exists");
-      restocked.push({ productId, quantity });
-    }
-    if (order.discountCode) {
-      const result = await Coupon.updateOne(
-        { code: order.discountCode, usageCount: { $gt: 0 } },
-        { $inc: { usageCount: -1 } }
+    let released = false;
+    await session.withTransaction(async () => {
+      released = false;
+      const filter = { _id: orderId, status: "pending", paymentStatus: "unpaid" };
+      if (paymentSessionId) filter.paymentSessionId = paymentSessionId;
+      const order = await Order.findOneAndUpdate(
+        filter,
+        { $set: { status: "cancelled", paymentStatus } },
+        { returnDocument: "after", session }
       );
-      couponRestored = result.modifiedCount === 1;
-    }
+      if (!order) return;
+
+      const quantities = new Map();
+      for (const item of order.items) {
+        quantities.set(item.productId, (quantities.get(item.productId) || 0) + item.quantity);
+      }
+
+      for (const [productId, quantity] of quantities) {
+        const result = await Product.updateOne(
+          { id: productId },
+          { $inc: { stock: quantity } },
+          { session }
+        );
+        if (result.matchedCount !== 1) throw new ApiError(409, "A reserved product no longer exists");
+      }
+      if (order.discountCode) {
+        await Coupon.updateOne(
+          { code: order.discountCode, usageCount: { $gt: 0 } },
+          { $inc: { usageCount: -1 } },
+          { session }
+        );
+      }
+      released = true;
+    });
+    return released;
   } catch (error) {
-    await Promise.all(
-      restocked.map(({ productId, quantity }) =>
-        Product.updateOne({ id: productId }, { $inc: { stock: -quantity } })
-      )
-    );
-    if (couponRestored && order.discountCode) {
-      await Coupon.updateOne({ code: order.discountCode }, { $inc: { usageCount: 1 } });
-    }
-    await Order.updateOne(
-      { _id: order._id, status: "cancelled", paymentStatus },
-      { $set: { status: "pending", paymentStatus: "unpaid" } }
-    );
     throw error;
+  } finally {
+    await session.endSession();
   }
-  return true;
 };
 
 export const expireUnpaidStripeSession = async (

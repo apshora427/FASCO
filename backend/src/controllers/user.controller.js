@@ -1,6 +1,7 @@
 import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { RecommendationEvent } from "../models/recommendationEvent.model.js";
 
 const publicUser = (u) => ({
   id: u._id,
@@ -38,5 +39,6 @@ export const deleteUser = asyncHandler(async (req, res) => {
 
   const user = await User.findByIdAndDelete(req.params.id);
   if (!user) throw new ApiError(404, "User not found");
+  await RecommendationEvent.deleteMany({ user: user._id });
   res.json({ success: true, message: "User deleted" });
 });

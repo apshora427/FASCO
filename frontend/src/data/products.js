@@ -7,15 +7,37 @@ import arrival6 from "../assets/figma/arrival-6.jpg"
 import deal1 from "../assets/figma/deal-1.jpg"
 import deal2 from "../assets/figma/deal-2.jpg"
 import deal3 from "../assets/figma/deal-3.jpg"
-import deal4 from "../assets/figma/deal-4.jpg"
 import follow2 from "../assets/figma/follow-2.jpg"
 import follow3 from "../assets/figma/follow-3.jpg"
 import follow4 from "../assets/figma/follow-4.jpg"
 import follow5 from "../assets/figma/follow-5.jpg"
 import follow6 from "../assets/figma/follow-6.jpg"
+import follow7 from "../assets/figma/follow-7.jpg"
 import customer1 from "../assets/figma/customer-1.jpg"
 import customer2 from "../assets/figma/customer-2.jpg"
 import customer3 from "../assets/figma/customer-3.jpg"
+import heroLeft from "../assets/figma/hero-left.jpg"
+import heroRight from "../assets/figma/hero-right.jpg"
+import heroTop from "../assets/figma/hero-top.jpg"
+import heroBottom from "../assets/figma/hero-bottom.jpg"
+import newsletterLeft from "../assets/figma/newsletter-left.png"
+import newsletterRight from "../assets/figma/newsletter-right.png"
+import brand1 from "../assets/figma/brand-1.svg"
+import brand2 from "../assets/figma/brand-2.svg"
+import brand3 from "../assets/figma/brand-3.svg"
+import brand4 from "../assets/figma/brand-4.svg"
+import brand5 from "../assets/figma/brand-5.svg"
+import feature1 from "../assets/figma/feature-1.svg"
+import feature2 from "../assets/figma/feature-2.svg"
+import feature3 from "../assets/figma/feature-3.svg"
+import feature4 from "../assets/figma/feature-4.svg"
+import follow1 from "../assets/figma/follow-1.jpg"
+import promo from "../assets/figma/promo-base.png"
+import capTag from "../assets/figma/promo-tag-cap.png"
+import suspenderTag from "../assets/figma/promo-tag-suspender.png"
+import hugoBossTag from "../assets/figma/promo-tag-hugo-boss.png"
+import hugoBossLowerTag from "../assets/figma/promo-tag-hugo-boss-lower.png"
+import santoniTag from "../assets/figma/promo-tag-santoni.png"
 
 /* Image registry — the backend stores stable keys (e.g. "arrival-1") so the
  * catalogue lives in MongoDB while the art stays bundled with the app.
@@ -30,12 +52,37 @@ const imageMap = {
   "deal-1": deal1,
   "deal-2": deal2,
   "deal-3": deal3,
-  "deal-4": deal4,
+  "customer-1": customer1,
+  "customer-2": customer2,
+  "customer-3": customer3,
   "follow-2": follow2,
   "follow-3": follow3,
   "follow-4": follow4,
   "follow-5": follow5,
   "follow-6": follow6,
+  "follow-7": follow7,
+  "hero-left": heroLeft,
+  "hero-right": heroRight,
+  "hero-top": heroTop,
+  "hero-bottom": heroBottom,
+  "newsletter-left": newsletterLeft,
+  "newsletter-right": newsletterRight,
+  "brand-1": brand1,
+  "brand-2": brand2,
+  "brand-3": brand3,
+  "brand-4": brand4,
+  "brand-5": brand5,
+  "feature-1": feature1,
+  "feature-2": feature2,
+  "feature-3": feature3,
+  "feature-4": feature4,
+  "follow-1": follow1,
+  "promo-base": promo,
+  "promo-tag-cap": capTag,
+  "promo-tag-suspender": suspenderTag,
+  "promo-tag-hugo-boss": hugoBossTag,
+  "promo-tag-hugo-boss-lower": hugoBossLowerTag,
+  "promo-tag-santoni": santoniTag,
 }
 
 export const resolveImage = (src) => (src ? imageMap[src] || src : "")
@@ -74,52 +121,6 @@ export const products = [
   mk(16, "Evening Dress", deal1, "Discount Deals", { originalPrice: 160, discount: "40% OFF" }),
   mk(17, "Denim Outfit", deal2, "Discount Deals", { originalPrice: 140, discount: "30% OFF" }),
   mk(18, "Cozy Sweater", arrival3, "Discount Deals", { originalPrice: 130, discount: "25% OFF" }),
-]
-
-export const newArrivals = products.filter((p) => p.arrival)
-
-export const categories = [
-  "Men's Fashion",
-  "Women's Fashion",
-  "Women Accessories",
-  "Men Accessories",
-  "Discount Deals",
-]
-
-// Deals Of The Month carousel — the first card carries the "Starting Date"
-// overlay exactly like the design.
-export const dealProducts = [
-  { id: "d1", title: "Shiny Black Dress", image: deal1, label: "01", sublabel: "Starting Date", badge: "30% OFF", width: 404, height: 582 },
-  { id: "d2", title: "Denim Two Piece", image: deal2, label: "02", sublabel: "Spring Sale", badge: "25% OFF", width: 372, height: 486 },
-  { id: "d3", title: "Summer Hat Look", image: deal3, label: "03", sublabel: "Spring Sale", badge: "20% OFF", width: 372, height: 486 },
-  { id: "d4", title: "Long White Dress", image: deal4, label: "04", sublabel: "Spring Sale", badge: "15% OFF", width: 302, height: 403 },
-]
-
-export const testimonials = [
-  {
-    id: 1,
-    name: "James K.",
-    role: "Traveler",
-    image: customer1,
-    quote:
-      "You won't regret it. I would like to personally thank you for your outstanding product. Absolutely wonderful!",
-  },
-  {
-    id: 2,
-    name: "Amelia R.",
-    role: "Stylist",
-    image: customer2,
-    quote:
-      "The quality feels premium and delivery was faster than expected. The fit is exactly as shown on the site — I get compliments every time.",
-  },
-  {
-    id: 3,
-    name: "Jason W.",
-    role: "Photographer",
-    image: customer3,
-    quote:
-      "Keep doing! Thank you for making it truly amazing. FASCO is one of an online store I keep coming back to, the team made me great.",
-  },
 ]
 
 export const formatPrice = (value) => `$${Number(value).toFixed(2)}`

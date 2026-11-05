@@ -42,10 +42,6 @@ export default function ForgetPassword() {
         result.message || "Check your email for the confirmation code."
       )
 
-      if (result.devCode) {
-        toast.info(`Development confirmation code: ${result.devCode}`)
-      }
-
       navigate("/confirmation", {
         state: {
           flow: "reset",

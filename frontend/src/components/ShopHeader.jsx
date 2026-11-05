@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router"
+import { LuHeart, LuSearch, LuShoppingBag, LuUserRound } from "react-icons/lu"
 import { UseStore } from "../context/StoreContext"
 import { UseUser } from "../context/UserContext"
 
@@ -11,6 +12,7 @@ const ShopHeader = ({ onSearch }) => {
   const { currentUser } = UseUser()
   const navigate = useNavigate()
   const accountPath = currentUser?.role === "admin" ? "/admin" : "/account"
+  const canAccessSavedItems = currentUser?.role === "user"
 
   const submitSearch = (event) => {
     event.preventDefault()
@@ -38,12 +40,16 @@ const ShopHeader = ({ onSearch }) => {
               <div className={`actions-header-shop__search search-form ${searchOpen ? "_active" : ""}`}>
                 <button
                   type="button"
-                  className="search-form__icon _icon-search"
+                  className="search-form__icon"
                   aria-label="Search"
                   onClick={() => setSearchOpen((open) => !open)}
-                />
+                >
+                  <LuSearch size={20} aria-hidden="true" />
+                </button>
                 <form className="search-form__item" onSubmit={submitSearch}>
-                  <button type="submit" className="search-form__btn _icon-search" aria-label="Submit search" />
+                  <button type="submit" className="search-form__btn" aria-label="Submit search">
+                    <LuSearch size={18} aria-hidden="true" />
+                  </button>
                   <input
                     autoComplete="off"
                     type="text"
@@ -56,22 +62,38 @@ const ShopHeader = ({ onSearch }) => {
                 </form>
               </div>
               <Link
-                to={currentUser ? accountPath : "/login"}
-                state={!currentUser ? { from: "/account" } : undefined}
-                aria-label="Account"
-                className="actions-header-shop__item actions-header-shop__item_profile _icon-profile"
-              />
-              <Link
-                to={currentUser ? "/wishlist" : "/login"}
-                state={!currentUser ? { from: "/wishlist" } : undefined}
-                aria-label={`Wishlist${wishlistCount ? `, ${wishlistCount} items` : ""}`}
-                className="actions-header-shop__item actions-header-shop__item_favorites _icon-favorite"
+                to={currentUser ? accountPath : "/sign_up"}
+                state={!currentUser ? { from: "/shop" } : undefined}
+                aria-label={currentUser ? "Account" : "Sign up"}
+                className={`actions-header-shop__item actions-header-shop__item_profile inline-flex items-center gap-2 ${currentUser ? "" : "whitespace-nowrap text-sm"}`}
               >
-                {wishlistCount > 0 && <span className="ml-1 rounded-full bg-[#ff706b] px-1 text-[10px] text-white">{wishlistCount}</span>}
+                {currentUser ? (
+                  <LuUserRound size={20} aria-hidden="true" />
+                ) : (
+                  "Sign up"
+                )}
+              </Link>
+              <Link
+                to={canAccessSavedItems ? "/wishlist" : "/login"}
+                state={!canAccessSavedItems ? { from: "/wishlist" } : undefined}
+                aria-label={`Wishlist${canAccessSavedItems && wishlistCount ? `, ${wishlistCount} items` : ""}`}
+                className="actions-header-shop__item actions-header-shop__item_favorites relative"
+              >
+                <LuHeart size={22} aria-hidden="true" />
+                {canAccessSavedItems && wishlistCount > 0 && (
+                  <span className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-[#ff706b] px-1 text-[10px] leading-none text-white">
+                    {wishlistCount}
+                  </span>
+                )}
               </Link>
               <div className="actions-header-shop__item cart-header">
-                <Link to="/cart" aria-label="Cart" className="cart-header__icon _icon-shopCart">
-                  {cartCount > 0 && <span>{cartCount}</span>}
+                <Link
+                  to={canAccessSavedItems ? "/cart" : "/login"}
+                  state={!canAccessSavedItems ? { from: "/cart" } : undefined}
+                  aria-label={`Cart${canAccessSavedItems && cartCount ? `, ${cartCount} items` : ""}`}
+                  className="cart-header__icon">
+                  <LuShoppingBag size={22} aria-hidden="true" />
+                  {canAccessSavedItems && cartCount > 0 && <span>{cartCount}</span>}
                 </Link>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { Category } from "../models/category.model.js";
 import { Product } from "../models/product.model.js";
+import { RecommendationEvent } from "../models/recommendationEvent.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -48,6 +49,7 @@ export const updateCategory = asyncHandler(async (req, res) => {
     await category.save();
     // keep products consistent so storefront filters keep finding them
     await Product.updateMany({ category: previous }, { $set: { category: name } });
+    await RecommendationEvent.updateMany({ category: previous }, { $set: { category: name } });
   }
 
   res.json({ success: true, message: "Category updated", category });

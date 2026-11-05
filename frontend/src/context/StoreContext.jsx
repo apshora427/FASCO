@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { products, resolveImage } from "../data/products";
 import { UseUser } from "./UserContext";
-import { getProducts, getWishlist, saveWishlist } from "../api/backend";
+import { getProducts, getWishlist, saveWishlist, trackRecommendationEvent } from "../api/backend";
 
 export const StoreContext = createContext()
 
@@ -177,6 +177,15 @@ const StoreProvider = ({ children }) => {
       })
   }
 
+  const recordRecommendationEvent = (product, eventType) => {
+    if (!userId || !Number.isSafeInteger(product?.id)) return
+    trackRecommendationEvent(product.id, eventType).then((response) => {
+      if (!response?.success) {
+        console.warn(`[recommendations] Could not record ${eventType} activity`)
+      }
+    })
+  }
+
   const toggleWishlist = (product) => {
     if (!product) return
     if (!requireAccount()) return
@@ -189,6 +198,7 @@ const StoreProvider = ({ children }) => {
       wishlistIds: nextIds,
     }))
     syncWishlist(nextIds)
+    if (!exists) recordRecommendationEvent(product, "wishlist")
     toast.success(exists ? "Removed from wishlist" : "Added to wishlist")
   }
 
@@ -242,6 +252,7 @@ const StoreProvider = ({ children }) => {
       return { ...prev, cartItems: [...prev.cartItems, { id: product.id, quantity: qty, ...variant }] }
     })
     toast.success("Added to cart")
+    recordRecommendationEvent(product, "cart")
     // quick-view drawer slides in after every add (product page, wishlist moves, …)
     window.dispatchEvent(new CustomEvent("fasco:minicart:open"))
     return true

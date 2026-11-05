@@ -1,14 +1,24 @@
 import { useState } from "react"
 import { toast } from "react-toastify"
 import { subscribe as subscribeRequest } from "../api/backend"
-import newsletterLeft from "../assets/figma/newsletter-left.png"
-import newsletterRight from "../assets/figma/newsletter-right.png"
+import { useHomepageContent } from "../hooks/useHomepageContent.js"
+import { resolveImage } from "../data/products"
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const Newsletter = () => {
+  const { content, loading, error, retry } = useHomepageContent()
   const [email, setEmail] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  if (loading) return null
+  if (error || !content) {
+    return (
+      <div className="container flex items-center justify-center gap-3 py-8" role="alert">
+        <p className="text-[#8a8a8a]">{error || "Newsletter content is unavailable."}</p>
+        <button type="button" className="underline underline-offset-2" onClick={retry}>Try again</button>
+      </div>
+    )
+  }
 
   // writes the inbox to the subscribers collection (admin dashboard reads it)
   const subscribe = async (e) => {
@@ -36,24 +46,22 @@ const Newsletter = () => {
       <div className="container">
         <div className="relative mx-auto flex w-full flex-col items-center pt-[clamp(60px,14.4vw,207px)] pb-[clamp(60px,17.9vw,257px)]">
           <img
-            src={newsletterLeft}
+            src={resolveImage(content.newsletter.backgroundImages.left)}
             alt=""
             aria-hidden="true"
             className="pointer-events-none absolute top-0 left-[-25%] h-full w-auto max-w-none object-cover opacity-30 sm:left-[-10%] lg:left-[-4.6875%] lg:opacity-100"
           />
           <img
-            src={newsletterRight}
+            src={resolveImage(content.newsletter.backgroundImages.right)}
             alt=""
             aria-hidden="true"
             className="pointer-events-none absolute top-0 right-[-25%] h-full w-auto max-w-none object-cover opacity-30 sm:right-[-10%] lg:right-[-4.6875%] lg:opacity-100"
           />
 
           <div className="relative z-10 mb-[30px] w-full text-center">
-            <h2 className="section-title">Subscribe To Our Newsletter</h2>
+            <h2 className="section-title">{content.newsletter.title}</h2>
             <p className="section-copy mx-auto mt-5 max-w-[614px]">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Scelerisque
-              duis ultrices sollicitudin aliquam sem. Scelerisque duis ultrices
-              sollicitudin.
+              {content.newsletter.description}
             </p>
           </div>
 
@@ -64,7 +72,7 @@ const Newsletter = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="michael@ymail.com"
+              placeholder={content.newsletter.emailPlaceholder}
               aria-label="Email address"
               autoComplete="email"
               required
@@ -82,7 +90,7 @@ const Newsletter = () => {
                 minHeight: 0,
                 padding: "19px 45px",
               }}>
-              {submitting ? "Subscribing…" : "Subscribe Now"}
+              {submitting ? "Subscribing…" : content.newsletter.buttonLabel}
             </button>
           </form>
         </div>

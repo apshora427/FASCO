@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Review } from "../models/review.model.js";
 import { User } from "../models/user.model.js";
+import { RecommendationEvent } from "../models/recommendationEvent.model.js";
 
 // GET /product — full catalogue, optionally filtered by ?category=.
 // Same envelope as every endpoint: { success, message, ...payload }.
@@ -159,6 +160,7 @@ export const deleteProduct = asyncHandler(async (req, res) => {
   if (!product) throw new ApiError(404, "Product not found");
   await Review.deleteMany({ productId: product.id });
   await User.updateMany({ wishlistIds: product.id }, { $pull: { wishlistIds: product.id } });
+  await RecommendationEvent.deleteMany({ productId: product.id });
 
   res.json({ success: true, message: "Product deleted" });
 });

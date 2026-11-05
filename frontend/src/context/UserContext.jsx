@@ -109,8 +109,7 @@ const UserProvider = ({ children }) => {
     }
   }
 
-  // Register an account. Does NOT sign the user in — the Figma flow sends the
-  // user to the Confirmation screen (code emailed) before they can log in.
+  // Register an account; email signup completes after confirmation.
   async function addUser(name, email, password, phone = "") {
     if (!name || !email || !password) {
       toastify("error", "Please fill up the form fully to sign up in FASCO")
@@ -131,8 +130,11 @@ const UserProvider = ({ children }) => {
 
     const res = await registerUser({ name, email, password, phone })
     if (res?.success) {
-      toastify("success", res.message || "Confirmation code sent to your email")
-      return Promise.resolve({ name, email, devCode: res.devCode })
+      toastify(
+        res.data?.emailSent ? "success" : "error",
+        res.message || "Confirmation code sent to your email"
+      )
+      return Promise.resolve({ name, email, emailSent: res.data?.emailSent === true })
     }
     toastify("error", res?.message || "Could not reach the server")
     return Promise.reject(new Error("register-failed"))
@@ -141,9 +143,11 @@ const UserProvider = ({ children }) => {
   // Verify the 6-digit code from the Confirmation screen.
   async function confirmCode(email, code) {
     const res = await verifyEmail(email, code)
-    if (res?.success) {
+    if (res?.success && res.userInfo) {
+      const { accesstoken, ...user } = res.userInfo
+      persist(user, false, accesstoken)
       toastify("success", res.message || "Email verified")
-      return Promise.resolve(res)
+      return Promise.resolve(user)
     }
     toastify("error", res?.message || "Invalid confirmation code")
     return Promise.reject(new Error("invalid-code"))

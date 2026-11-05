@@ -8,6 +8,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import MiniCart from "./components/MiniCart";
 import SectionMotion from "./animation/SectionMotion";
+import { HomepageContentProvider } from "./hooks/HomepageContentProvider";
 
 const Home = lazy(() => import("./pages/Home"));
 const Shop = lazy(() => import("./pages/Shop"));
@@ -29,6 +30,7 @@ const Orders = lazy(() => import("./pages/admin/Orders"));
 const Coupons = lazy(() => import("./pages/admin/Coupons"));
 const Users = lazy(() => import("./pages/admin/Users"));
 const Subscribers = lazy(() => import("./pages/admin/Subscribers"));
+const Homepage = lazy(() => import("./pages/admin/Homepage"));
 const Account = lazy(() => import("./pages/Account"));
 const Wishlist = lazy(() => import("./pages/Wishlist"));
 const Compare = lazy(() => import("./pages/Compare"));
@@ -37,10 +39,10 @@ const PageShell = ({ children }) => {
   const prefersReducedMotion = useReducedMotion()
   return (
     <motion.div
-      initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 12, scale: 0.99 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: prefersReducedMotion ? 0 : -5 }}
-      transition={{ duration: prefersReducedMotion ? 0 : 0.24, ease: "easeOut" }}>
+      transition={{ duration: prefersReducedMotion ? 0 : 0.32, ease: [0.22, 1, 0.36, 1] }}>
       <SectionMotion />
       {children}
     </motion.div>
@@ -84,9 +86,10 @@ const AppRoutes = ({ canBrowse, currentUser }) => {
   return (
     <>
       <ScrollToTop />
-      <AnimatePresence mode="wait">
-        <Suspense fallback={<PageLoading />}>
-          <Routes location={location} key={location.pathname}>
+      <HomepageContentProvider>
+        <AnimatePresence mode="wait">
+          <Suspense fallback={<PageLoading />}>
+            <Routes location={location} key={location.pathname}>
             <Route path="/" element={canBrowse ? <PageShell><Home /></PageShell> : <Navigate to="/login" replace />} />
             <Route path="/shop" element={canBrowse ? <PageShell><Shop /></PageShell> : <Navigate to="/login" replace />} />
             <Route path="/product/:id" element={canBrowse ? <PageShell><Product_Description /></PageShell> : <Navigate to="/login" replace />} />
@@ -120,9 +123,31 @@ const AppRoutes = ({ canBrowse, currentUser }) => {
                 )
               }
             />
+            <Route
+              path="/cart"
+              element={
+                currentUser?.role === "user" ? (
+                  <PageShell><Cart /></PageShell>
+                ) : currentUser?.role === "admin" ? (
+                  <Navigate to="/admin" replace />
+                ) : (
+                  <Navigate to="/login" replace state={{ from: { pathname: "/cart" } }} />
+                )
+              }
+            />
             <Route path="/compare" element={canBrowse ? <PageShell><Compare /></PageShell> : <Navigate to="/login" replace />} />
-            <Route path="/cart" element={<PageShell><Cart /></PageShell>} />
-            <Route path="/checkout" element={<PageShell><Checkout /></PageShell>} />
+            <Route
+              path="/checkout"
+              element={
+                currentUser?.role === "user" ? (
+                  <PageShell><Checkout /></PageShell>
+                ) : currentUser?.role === "admin" ? (
+                  <Navigate to="/admin" replace />
+                ) : (
+                  <Navigate to="/login" replace state={{ from: { pathname: "/checkout" } }} />
+                )
+              }
+            />
             <Route
               path="/admin"
               element={
@@ -141,11 +166,13 @@ const AppRoutes = ({ canBrowse, currentUser }) => {
               <Route path="coupons" element={<Coupons />} />
               <Route path="users" element={<Users />} />
               <Route path="subscribers" element={<Subscribers />} />
+              <Route path="homepage" element={<Homepage />} />
             </Route>
             <Route path="*" element={canBrowse ? <PageShell><NotFound /></PageShell> : <Navigate to="/login" replace />} />
-          </Routes>
-        </Suspense>
-      </AnimatePresence>
+            </Routes>
+          </Suspense>
+        </AnimatePresence>
+      </HomepageContentProvider>
     </>
   );
 };

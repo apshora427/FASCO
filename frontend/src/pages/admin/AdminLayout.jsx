@@ -13,6 +13,7 @@ import {
   LuMenu,
   LuX,
   LuSparkles,
+  LuFileText,
 } from "react-icons/lu"
 import { motion } from "framer-motion"
 import { UseUser } from "../../context/UserContext"
@@ -21,6 +22,7 @@ import SectionMotion from "../../animation/SectionMotion"
 const NAV = [
   { to: "/admin", end: true, label: "Overview", icon: LuLayoutDashboard },
   { to: "/admin/products", label: "Products", icon: LuPackage },
+  { to: "/admin/homepage", label: "Homepage", icon: LuFileText },
   { to: "/admin/categories", label: "Categories", icon: LuTags },
   { to: "/admin/orders", label: "Orders", icon: LuShoppingBag },
   { to: "/admin/coupons", label: "Coupons", icon: LuTicket },

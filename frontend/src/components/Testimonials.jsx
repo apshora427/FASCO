@@ -1,10 +1,11 @@
 import { useState } from "react"
 import { LuChevronLeft, LuChevronRight } from "react-icons/lu"
-import { testimonials } from "../data/products"
+import { resolveImage } from "../data/products"
+import { useHomepageContent } from "../hooks/useHomepageContent.js"
 
-const Stars = () => (
-  <div className="text-[19px] leading-none tracking-[0.12em] text-[#FCA120]" aria-label="5 out of 5 stars">
-    ★★★★★
+const Stars = ({ rating }) => (
+  <div className="text-[19px] leading-none tracking-[0.12em] text-[#FCA120]" aria-label={`${rating} out of 5 stars`}>
+    {"★".repeat(Math.round(rating))}
   </div>
 )
 
@@ -18,7 +19,7 @@ const Card = ({ person, active = false }) => (
     }>
     <div className="relative shrink-0 self-center sm:ml-5">
       <img
-        src={person.image}
+        src={resolveImage(person.image)}
         alt={person.name}
         loading="lazy"
         decoding="async"
@@ -31,7 +32,7 @@ const Card = ({ person, active = false }) => (
         &ldquo;{person.quote}&rdquo;
       </p>
       <div className="mb-[30px]">
-        <Stars />
+        <Stars rating={person.rating} />
       </div>
       <div className="mb-[15px] h-px w-[230px] max-w-full bg-[#484848]" />
       <h3 className="mb-[13px] font-Display text-[32px] leading-[1.2] text-[#484848]">
@@ -43,6 +44,8 @@ const Card = ({ person, active = false }) => (
 )
 
 const Testimonials = () => {
+  const { content } = useHomepageContent()
+  const testimonials = content.testimonials.items
   const [index, setIndex] = useState(0)
   const count = testimonials.length
 
@@ -54,10 +57,9 @@ const Testimonials = () => {
   return (
     <section id="testimonials" className="scroll-mt-24 overflow-hidden bg-[#FAFAFA] pt-[clamp(40px,6.95vw,100px)] pb-[clamp(40px,4vw,58px)]">
       <div className="container mb-[clamp(30px,4.9vw,70px)] text-center">
-        <h2 className="section-title">This Is What Our Customers Say</h2>
+        <h2 className="section-title">{content.testimonials.title}</h2>
         <p className="section-copy mx-auto mt-5 max-w-[614px]">
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Scelerisque
-          duis
+          {content.testimonials.description}
         </p>
       </div>
 

@@ -138,7 +138,7 @@ export const register = asyncHandler(async (req, res) => {
     ...newCode("signup"),
   });
 
-  const { delivered, code } = await sendVerificationEmail({
+  const { delivered } = await sendVerificationEmail({
     to: user.email,
     name: user.name,
     code: user.verifyCode,
@@ -146,9 +146,10 @@ export const register = asyncHandler(async (req, res) => {
 
   res.status(201).json({
     success: true,
-    message: "Confirmation code sent to your email",
-    data: { email: user.email },
-    ...(!delivered && code && !env.isProduction ? { devCode: code } : {}),
+    message: delivered
+      ? "Confirmation code sent to your email"
+      : "Email delivery is unavailable. Please try again later or contact support.",
+    data: { email: user.email, emailSent: delivered },
   });
 });
 
@@ -170,7 +171,14 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     }
   );
   if (!result.modifiedCount) throw new ApiError(401, "Invalid or expired confirmation code");
-  res.json({ success: true, message: "Email verification successful" });
+  user.isVerified = true;
+  const verifiedUser = await User.findById(user._id).select("+tokenVersion");
+  if (!verifiedUser) throw new ApiError(404, "User not found");
+  res.json({
+    success: true,
+    message: "Email verification successful",
+    userInfo: { ...publicUser(verifiedUser), accesstoken: signToken(verifiedUser) },
+  });
 });
 
 // POST /verify-reset-code
@@ -192,15 +200,17 @@ export const resendCode = asyncHandler(async (req, res) => {
 
   Object.assign(user, newCode("signup"));
   await user.save();
-  const { delivered, code } = await sendVerificationEmail({
+  const { delivered } = await sendVerificationEmail({
     to: user.email,
     name: user.name,
     code: user.verifyCode,
   });
   res.json({
     success: true,
-    message: "Confirmation code resent — please check your email",
-    ...(!delivered && code && !env.isProduction ? { devCode: code } : {}),
+    message: delivered
+      ? "Confirmation code resent — please check your email"
+      : "Email delivery is unavailable. Please try again later or contact support.",
+    emailSent: delivered,
   });
 });
 
@@ -243,21 +253,23 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 
   const user = await User.findOne({ email: normalizedEmail });
   if (!user) {
-    res.json({ success: true, message: "If an account exists for that email, a reset code has been sent." });
+    res.json({
+      success: true,
+      message: "If an account exists for that email, a reset code will be emailed when delivery is available.",
+    });
     return;
   }
 
   Object.assign(user, newCode("reset"));
   await user.save();
-  const { delivered, code } = await sendPasswordResetEmail({
+  await sendPasswordResetEmail({
     to: user.email,
     name: user.name,
     code: user.verifyCode,
   });
   res.json({
     success: true,
-    message: "If an account exists for that email, a reset code has been sent.",
-    ...(!delivered && code && !env.isProduction ? { devCode: code } : {}),
+    message: "If an account exists for that email, a reset code will be emailed when delivery is available.",
   });
 });
 
@@ -430,8 +442,10 @@ export const requestEmailChange = asyncHandler(async (req, res) => {
   const delivery = await sendEmailChangeVerification({ to: email, name: user.name, code });
   res.json({
     success: true,
-    message: "A confirmation code has been sent to your new email address",
-    ...(!delivery.delivered && delivery.code && !env.isProduction ? { devCode: code } : {}),
+    message: delivery.delivered
+      ? "A confirmation code has been sent to your new email address"
+      : "Email delivery is unavailable. Please try again later or contact support.",
+    emailSent: delivery.delivered,
   });
 });
 

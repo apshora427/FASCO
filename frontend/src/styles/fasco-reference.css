@@ -1957,6 +1957,7 @@
   margin-bottom: 1.25rem;
   overflow: hidden;
   display: block;
+  aspect-ratio: 4 / 5;
 }
 @media (any-hover: hover) {
   .fasco-ref .card-catalog__image:hover img {
@@ -1965,7 +1966,9 @@
 }
 .fasco-ref .card-catalog__image img {
   width: 100%;
+  height: 100%;
   max-width: 100%;
+  display: block;
   object-fit: cover;
   transition: transform 0.3s ease;
 }

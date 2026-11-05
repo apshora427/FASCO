@@ -1,6 +1,7 @@
 import { Order } from "../models/order.model.js";
 import { Product } from "../models/product.model.js";
 import { Coupon } from "../models/coupon.model.js";
+import mongoose from "mongoose";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import crypto from "node:crypto";
@@ -129,89 +130,80 @@ export const createOrderFromRequest = async (req, { paymentStatus = "unpaid", pa
   const shipping = subtotal >= FREE_SHIPPING_OVER ? 0 : SHIPPING_FLAT;
   let total = Math.max(0, subtotal - discount) + shipping;
 
-  const reserved = [];
-  let couponReserved = false;
+  const session = await mongoose.startSession();
   let order;
   try {
-    if (coupon) {
-      const now = new Date();
-      const couponFilter = {
-        _id: coupon._id,
-        active: true,
-        $and: [
-          { $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] },
-          { $or: [{ minOrderAmount: null }, { minOrderAmount: { $lte: subtotal } }] },
-        ],
-      };
-      if (coupon.usageLimit !== null && coupon.usageLimit !== undefined) {
-        couponFilter.usageCount = { $lt: coupon.usageLimit };
-      }
-      const reservedCoupon = await Coupon.findOneAndUpdate(
-        couponFilter,
-        { $inc: { usageCount: 1 } },
-        { returnDocument: "after" }
-      );
-      if (!reservedCoupon) {
-        await resolveCoupon(discountCode, subtotal);
-        throw new ApiError(409, "Discount code is no longer available");
-      }
-      coupon = reservedCoupon;
-      couponReserved = true;
-      discount = Math.round(subtotal * coupon.discount * 100) / 100;
-      total = Math.max(0, subtotal - discount) + shipping;
-    }
-
-    for (const [productId, quantity] of quantitiesByProduct) {
-      const product = await Product.findOneAndUpdate(
-        { id: productId, stock: { $gte: quantity } },
-        { $inc: { stock: -quantity } },
-        { returnDocument: "after" }
-      );
-      if (!product) {
-        const latest = await Product.findOne({ id: productId }).select("title stock");
-        throw new ApiError(
-          409,
-          latest
-            ? `Only ${latest.stock} left of ${latest.title}`
-            : "A product in your cart is no longer available"
+    await session.withTransaction(async () => {
+      let reservedCoupon = null;
+      if (coupon) {
+        const now = new Date();
+        const couponFilter = {
+          _id: coupon._id,
+          active: true,
+          $and: [
+            { $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] },
+            { $or: [{ minOrderAmount: null }, { minOrderAmount: { $lte: subtotal } }] },
+          ],
+        };
+        if (coupon.usageLimit !== null && coupon.usageLimit !== undefined) {
+          couponFilter.usageCount = { $lt: coupon.usageLimit };
+        }
+        reservedCoupon = await Coupon.findOneAndUpdate(
+          couponFilter,
+          { $inc: { usageCount: 1 } },
+          { returnDocument: "after", session }
         );
+        if (!reservedCoupon) {
+          await resolveCoupon(discountCode, subtotal);
+          throw new ApiError(409, "Discount code is no longer available");
+        }
+        discount = Math.round(subtotal * reservedCoupon.discount * 100) / 100;
+        total = Math.max(0, subtotal - discount) + shipping;
       }
-      reserved.push({ productId, quantity });
-    }
 
-    order = await Order.create({
-      orderNumber: `FS-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`,
-      items: lines,
-      customer: {
-        email,
-        firstName: customerInfo.firstName.trim(),
-        lastName: customerInfo.lastName.trim(),
-        address: customerInfo.address.trim(),
-        city: customerInfo.city.trim(),
-        postal: customerInfo.postal.trim(),
-        country: customerInfo.country.trim(),
-      },
-      subtotal,
-      discount,
-      discountCode: coupon ? coupon.code : "",
-      shipping,
-      total,
-      paymentStatus,
-      paymentMethod,
-      user: req.user?.id || null,
-      isGuest: !req.user,
-      note: String(note || ""),
+      for (const [productId, quantity] of quantitiesByProduct) {
+        const product = await Product.findOneAndUpdate(
+          { id: productId, stock: { $gte: quantity } },
+          { $inc: { stock: -quantity } },
+          { returnDocument: "after", session }
+        );
+        if (!product) {
+          const latest = await Product.findOne({ id: productId }).select("title stock").session(session);
+          throw new ApiError(
+            409,
+            latest
+              ? `Only ${latest.stock} left of ${latest.title}`
+              : "A product in your cart is no longer available"
+          );
+        }
+      }
+
+      [order] = await Order.create([{
+        orderNumber: `FS-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`,
+        items: lines,
+        customer: {
+          email,
+          firstName: customerInfo.firstName.trim(),
+          lastName: customerInfo.lastName.trim(),
+          address: customerInfo.address.trim(),
+          city: customerInfo.city.trim(),
+          postal: customerInfo.postal.trim(),
+          country: customerInfo.country.trim(),
+        },
+        subtotal,
+        discount,
+        discountCode: reservedCoupon ? reservedCoupon.code : "",
+        shipping,
+        total,
+        paymentStatus,
+        paymentMethod,
+        user: req.user?.id || null,
+        isGuest: !req.user,
+        note: String(note || ""),
+      }], { session });
     });
-
-  } catch (error) {
-    if (couponReserved) await Coupon.updateOne({ _id: coupon._id, usageCount: { $gt: 0 } }, { $inc: { usageCount: -1 } });
-    if (order) await Order.deleteOne({ _id: order._id });
-    await Promise.all(
-      reserved.map(({ productId, quantity }) =>
-        Product.updateOne({ id: productId }, { $inc: { stock: quantity } })
-      )
-    );
-    throw error;
+  } finally {
+    await session.endSession();
   }
 
   return order;
@@ -282,48 +274,43 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   const previousStatus = order.status;
   const update = { status };
   if (refunded) update.paymentStatus = "refunded";
-  const updatedOrder = await Order.findOneAndUpdate(
-    { _id: order._id, status: previousStatus },
-    { $set: update },
-    { returnDocument: "after", runValidators: true }
-  );
-  if (!updatedOrder) throw new ApiError(409, "The order status changed; refresh and try again");
-  if (status === "cancelled") {
-    const quantities = new Map();
-    for (const item of order.items) {
-      quantities.set(item.productId, (quantities.get(item.productId) || 0) + item.quantity);
-    }
-    const restocked = [];
-    let couponRestored = false;
-    try {
-      for (const [productId, quantity] of quantities) {
-        const result = await Product.updateOne({ id: productId }, { $inc: { stock: quantity } });
-        if (result.matchedCount !== 1) throw new ApiError(409, "A product for this order no longer exists");
-        restocked.push({ productId, quantity });
-      }
-      if (order.discountCode) {
-        const couponResult = await Coupon.updateOne(
-          { code: order.discountCode, usageCount: { $gt: 0 } },
-          { $inc: { usageCount: -1 } }
-        );
-        couponRestored = couponResult.modifiedCount === 1;
-      }
-    } catch (error) {
-      await Promise.all(
-        restocked.map(({ productId, quantity }) =>
-          Product.updateOne({ id: productId }, { $inc: { stock: -quantity } })
-        )
+  const session = await mongoose.startSession();
+  let updatedOrder;
+  try {
+    await session.withTransaction(async () => {
+      updatedOrder = null;
+      updatedOrder = await Order.findOneAndUpdate(
+        { _id: order._id, status: previousStatus },
+        { $set: update },
+        { returnDocument: "after", runValidators: true, session }
       );
-      await Order.updateOne(
-        { _id: order._id, status: "cancelled" },
-        { $set: { status: previousStatus } }
-      );
-      if (couponRestored && order.discountCode) {
-        await Coupon.updateOne({ code: order.discountCode }, { $inc: { usageCount: 1 } });
+      if (!updatedOrder) return;
+      if (status === "cancelled") {
+        const quantities = new Map();
+        for (const item of order.items) {
+          quantities.set(item.productId, (quantities.get(item.productId) || 0) + item.quantity);
+        }
+        for (const [productId, quantity] of quantities) {
+          const result = await Product.updateOne(
+            { id: productId },
+            { $inc: { stock: quantity } },
+            { session }
+          );
+          if (result.matchedCount !== 1) throw new ApiError(409, "A product for this order no longer exists");
+        }
+        if (order.discountCode) {
+          await Coupon.updateOne(
+            { code: order.discountCode, usageCount: { $gt: 0 } },
+            { $inc: { usageCount: -1 } },
+            { session }
+          );
+        }
       }
-      throw error;
-    }
+    });
+  } finally {
+    await session.endSession();
   }
+  if (!updatedOrder) throw new ApiError(409, "The order status changed; refresh and try again");
 
   await sendOrderStatusUpdate(updatedOrder);
   res.json({ success: true, message: `Order marked ${status}`, order: updatedOrder });

@@ -4,20 +4,29 @@ import { unlink } from "node:fs/promises";
 import { basename, join } from "node:path";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { withDbName } from "../src/config/db.config.js";
 import { createApp } from "../src/app.js";
 import { Product } from "../src/models/product.model.js";
 import { User } from "../src/models/user.model.js";
 import { Order } from "../src/models/order.model.js";
 import { Coupon } from "../src/models/coupon.model.js";
+import { StripeWebhookEvent } from "../src/models/stripeWebhookEvent.model.js";
 import { Review } from "../src/models/review.model.js";
+import { RecommendationEvent } from "../src/models/recommendationEvent.model.js";
+import { ensureHomepageContent } from "../src/data/homepage.seed.js";
+import { HomepageContent } from "../src/models/homepageContent.model.js";
 import { uploadsDirectory } from "../src/utils/uploadStorage.js";
 import { createOrderFromRequest } from "../src/controllers/order.controller.js";
 import {
   expireUnpaidStripeSession,
   releaseUnpaidOrder,
 } from "../src/controllers/paymentReservation.js";
-import { completeStripeCheckout } from "../src/controllers/payment.controller.js";
+import {
+  completeStripeCheckout,
+  processStripeWebhookEvent,
+  recoverPaymentWork,
+} from "../src/controllers/payment.controller.js";
 
 let mongo;
 let server;
@@ -54,9 +63,24 @@ const createTestOrder = async (payload, token = userToken, options = {}) => {
   }
 };
 
+test("adds the default database without corrupting MongoDB URI query options", () => {
+  assert.equal(
+    withDbName("mongodb://127.0.0.1:27017/?replicaSet=rs0"),
+    "mongodb://127.0.0.1:27017/fasco?replicaSet=rs0"
+  );
+  assert.equal(
+    withDbName("mongodb://127.0.0.1:27017/store?authSource=admin"),
+    "mongodb://127.0.0.1:27017/store?authSource=admin"
+  );
+});
+
 before(async () => {
-  mongo = await MongoMemoryServer.create();
+  mongo = await MongoMemoryReplSet.create({
+    replSet: { count: 1, storageEngine: "wiredTiger" },
+    instanceOpts: [{ launchTimeout: 30_000 }],
+  });
   await mongoose.connect(mongo.getUri());
+  await ensureHomepageContent();
 
   const password = await bcrypt.hash("Test-Password-123!", 4);
   await User.create([
@@ -98,6 +122,76 @@ after(async () => {
   if (server) await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   await mongoose.disconnect();
   if (mongo) await mongo.stop();
+});
+
+test("verifies new customer email and starts an authenticated session", async () => {
+  const email = "new-customer@test.invalid";
+  const registration = await request("/register", "POST", {
+    name: "New Customer",
+    email,
+    password: "Fresh-1!",
+    phone: "+1 555 0101",
+  });
+  assert.equal(registration.status, 201);
+  assert.equal(registration.data.success, true);
+  assert.equal(typeof registration.data.data.emailSent, "boolean");
+  assert.equal("devCode" in registration.data, false);
+
+  const pendingUser = await User.findOne({ email }).select("+verifyCode +password");
+  assert.ok(pendingUser?.verifyCode);
+  assert.match(pendingUser.password, /^\$2[aby]\$/);
+  assert.equal(await bcrypt.compare("Fresh-1!", pendingUser.password), true);
+  const verification = await request("/verify", "POST", {
+    email,
+    code: pendingUser.verifyCode,
+  });
+  assert.equal(verification.status, 200);
+  assert.equal(verification.data.userInfo.isVerified, true);
+  assert.equal(verification.data.userInfo.email, email);
+  assert.equal("verifyCode" in verification.data.userInfo, false);
+  assert.ok(verification.data.userInfo.accesstoken);
+
+  const session = await request("/me", "GET", undefined, verification.data.userInfo.accesstoken);
+  assert.equal(session.status, 200);
+  assert.equal(session.data.user.email, email);
+
+  const resetRequest = await request("/forgot-password", "POST", { email });
+  assert.equal(resetRequest.status, 200);
+  assert.equal(resetRequest.data.success, true);
+  assert.equal("code" in resetRequest.data, false);
+  const resetUser = await User.findOne({ email })
+    .select("+verifyCode +verifyCodePurpose +verifyCodeExpires");
+  assert.equal(resetUser.verifyCodePurpose, "reset");
+  assert.ok(resetUser.verifyCodeExpires > new Date());
+  const resetVerification = await request("/verify-reset-code", "POST", {
+    email,
+    code: resetUser.verifyCode,
+  });
+  assert.equal(resetVerification.status, 200);
+  const passwordReset = await request("/setnew-password", "POST", {
+    email,
+    code: resetUser.verifyCode,
+    newPassword: "Reset-456!",
+    confirmPassword: "Reset-456!",
+  });
+  assert.equal(passwordReset.status, 200);
+  assert.equal(
+    (await request("/login", "POST", {
+      email,
+      password: "Reset-456!",
+      role: "user",
+    })).status,
+    200
+  );
+  assert.equal(
+    (await request("/setnew-password", "POST", {
+      email,
+      code: resetUser.verifyCode,
+      newPassword: "Reset-789!",
+      confirmPassword: "Reset-789!",
+    })).status,
+    401
+  );
 });
 
 test("enforces roles and validates category, product, inventory, and order flows", async () => {
@@ -195,6 +289,45 @@ test("enforces roles and validates category, product, inventory, and order flows
   );
   assert.equal(productResponse.status, 201);
   const productId = productResponse.data.product.id;
+  assert.equal((await request("/recommendations")).status, 401);
+  assert.equal((await request("/recommendations", "GET", undefined, adminToken)).status, 403);
+  assert.equal(
+    (await request("/recommendations/events", "POST", { productId, eventType: "purchase" }, userToken)).status,
+    400
+  );
+  assert.equal(
+    (await request("/recommendations/events", "POST", { productId: 99999, eventType: "view" }, userToken)).status,
+    404
+  );
+  const similarProductResponse = await request(
+    "/product/create",
+    "POST",
+    {
+      title: "Similar Test Coat",
+      price: 12,
+      brand: "Test Brand",
+      category: "Test Apparel",
+      image: "similar-coat.jpg",
+      stock: 5,
+    },
+    adminToken
+  );
+  assert.equal(similarProductResponse.status, 201);
+  const similarProductId = similarProductResponse.data.product.id;
+  assert.equal(
+    (await request("/recommendations/events", "POST", { productId, eventType: "view" }, userToken)).status,
+    202
+  );
+  await request("/recommendations/events", "POST", { productId, eventType: "view" }, accountToken);
+  await request("/recommendations/events", "POST", { productId: similarProductId, eventType: "cart" }, accountToken);
+  const recommendations = await request("/recommendations?excludeProductId=" + productId, "GET", undefined, userToken);
+  assert.equal(recommendations.status, 200);
+  assert.equal(recommendations.data.recommendations[0].id, similarProductId);
+  assert.equal(recommendations.data.signals.similarCustomers, true);
+  assert.equal(
+    (await RecommendationEvent.findOne({ user: userId, productId, eventType: "view" })).count,
+    1
+  );
   assert.equal((await request("/wishlist", "GET", undefined, userToken)).data.wishlistIds.length, 0);
   assert.equal((await request("/wishlist", "PUT", { wishlistIds: [productId] }, userToken)).status, 200);
   assert.deepEqual(
@@ -258,6 +391,12 @@ test("enforces roles and validates category, product, inventory, and order flows
   const paymentConfig = await request("/payment/config");
   assert.equal(paymentConfig.status, 200);
   assert.equal(typeof paymentConfig.data.paymentEnabled, "boolean");
+  const readiness = await request("/health/ready");
+  assert.equal(readiness.status, 200);
+  assert.equal(readiness.data.status, "ready");
+  assert.equal(readiness.data.checks.database.status, "up");
+  assert.equal(readiness.data.checks.database.topology, "replica_set");
+  assert.ok(["configured", "not_configured"].includes(readiness.data.checks.email.status));
   assert.equal((await request("/order", "POST", {})).status, 404);
   if (!paymentConfig.data.paymentEnabled) {
     assert.equal(
@@ -332,6 +471,41 @@ test("enforces roles and validates category, product, inventory, and order flows
   assert.equal(confirmedPaidOrder.status, "confirmed");
   assert.equal(confirmedPaidOrder.paymentStatus, "paid");
   assert.equal(confirmedPaidOrder.paymentIntentId, stripeSession.payment_intent);
+  const stripeEvent = {
+    id: "evt_test_checkout_paid",
+    type: "checkout.session.completed",
+    data: { object: stripeSession },
+  };
+  assert.deepEqual(await processStripeWebhookEvent(stripeEvent), {
+    duplicate: false,
+    status: "processed",
+  });
+  assert.deepEqual(await processStripeWebhookEvent(stripeEvent), {
+    duplicate: true,
+    status: "processed",
+  });
+  assert.equal((await StripeWebhookEvent.findOne({ eventId: stripeEvent.id })).attempts, 1);
+  let emailStatusOrder = await Order.findById(paidOrder.data.order._id)
+    .select("+confirmationEmailAttempts");
+  assert.ok(["sent", "failed"].includes(emailStatusOrder.confirmationEmailStatus));
+  if (emailStatusOrder.confirmationEmailStatus === "failed") {
+    const attemptsBeforeRecovery = emailStatusOrder.confirmationEmailAttempts;
+    await Order.updateOne(
+      { _id: emailStatusOrder._id },
+      { $set: { confirmationEmailNextAttemptAt: new Date(0) } }
+    );
+    await recoverPaymentWork();
+    emailStatusOrder = await Order.findById(emailStatusOrder._id)
+      .select("+confirmationEmailAttempts");
+    assert.ok(emailStatusOrder.confirmationEmailAttempts > attemptsBeforeRecovery);
+  }
+  const purchaseRecommendations = await request(
+    "/recommendations?excludeProductId=" + productId,
+    "GET",
+    undefined,
+    userToken
+  );
+  assert.equal(purchaseRecommendations.data.signals.purchases, true);
   let sessionExpireCalls = 0;
   assert.equal(await expireUnpaidStripeSession(
     { paymentMethod: "stripe", paymentStatus: "unpaid", paymentSessionId: "cs_test_open" },
@@ -584,7 +758,9 @@ test("enforces roles and validates category, product, inventory, and order flows
   );
   assert.equal((await Product.findOne({ id: productId })).category, "Renamed Apparel");
   assert.equal((await request(`/product/${productId}`, "DELETE", undefined, adminToken)).status, 200);
+  assert.equal((await request(`/product/${similarProductId}`, "DELETE", undefined, adminToken)).status, 200);
   assert.equal(await Review.countDocuments({ productId }), 0);
+  assert.equal(await RecommendationEvent.countDocuments({ productId }), 0);
   assert.deepEqual(
     (await request("/wishlist", "GET", undefined, userToken)).data.wishlistIds,
     []
@@ -698,7 +874,9 @@ test("supports secure customer profile, email, password, and private order histo
     accountToken
   );
   assert.equal(sentCode.status, 200);
-  assert.ok(sentCode.data.devCode);
+  assert.equal("devCode" in sentCode.data, false);
+  const pendingEmailChange = await User.findById(accountUserId).select("+emailChangeCode");
+  assert.ok(pendingEmailChange.emailChangeCode);
   assert.equal(
     (await request("/profile/email/verify", "POST", { code: "000000" }, accountToken)).status,
     401
@@ -706,7 +884,7 @@ test("supports secure customer profile, email, password, and private order histo
   const verifiedEmail = await request(
     "/profile/email/verify",
     "POST",
-    { code: sentCode.data.devCode },
+    { code: pendingEmailChange.emailChangeCode },
     accountToken
   );
   assert.equal(verifiedEmail.status, 200);
@@ -760,4 +938,98 @@ test("supports secure customer profile, email, password, and private order histo
   assert.ok(privateOrders.data.orders.every((order) => String(order.user) === String(newPasswordLogin.data.userInfo.id)));
   assert.ok(privateOrders.data.orders.every(({ orderNumber }) => orderNumber !== "FS-OTHER-1"));
   assert.equal((await request("/my-orders")).status, 401);
+});
+
+test("serves database-driven homepage data and restricts homepage edits to admins", async () => {
+  const homepage = await request("/homepage");
+  assert.equal(homepage.status, 200);
+  assert.equal(homepage.data.content.deals.title, "Deals Of The Month");
+  assert.equal(homepage.data.content.hero.subtitle, "New Collection");
+  assert.ok(homepage.data.dealEndsAt);
+  assert.ok(Array.isArray(homepage.data.products));
+
+  await Product.create([
+    {
+      id: 998,
+      title: "Out of stock deal",
+      price: 25,
+      originalPrice: 50,
+      category: "Discount Deals",
+      image: "deal-1",
+      stock: 0,
+    },
+    {
+      id: 999,
+      title: "Featured sale product",
+      price: 30,
+      originalPrice: 60,
+      category: "Discount Deals",
+      image: "deal-2",
+      stock: 4,
+    },
+  ]);
+  const productHomepage = await request("/homepage");
+  assert.ok(productHomepage.data.deals.some((product) => product.id === 999));
+  assert.ok(productHomepage.data.deals.every((product) => product.stock > 0));
+
+  assert.equal(
+    (await request("/homepage", "PUT", { content: homepage.data.content })).status,
+    401
+  );
+  await User.create({
+    name: "Homepage Customer",
+    email: "homepage-customer@test.invalid",
+    password: await bcrypt.hash("Test-Password-123!", 4),
+    role: "user",
+    isVerified: true,
+  });
+  const customerLogin = await request("/login", "POST", {
+    email: "homepage-customer@test.invalid",
+    password: "Test-Password-123!",
+    role: "user",
+  });
+  assert.equal(customerLogin.status, 200);
+  assert.equal(
+    (
+      await request(
+        "/homepage",
+        "PUT",
+        { content: homepage.data.content },
+        customerLogin.data.userInfo.accesstoken
+      )
+    ).status,
+    403
+  );
+
+  const updatedContent = structuredClone(homepage.data.content);
+  updatedContent.hero.subtitle = "Backend-managed collection";
+  updatedContent.promo.featuredProductId = 999;
+  const saved = await request("/homepage", "PUT", { content: updatedContent }, adminToken);
+  assert.equal(saved.status, 200, saved.data.message);
+  assert.equal(saved.data.content.hero.subtitle, "Backend-managed collection");
+
+  const updatedHomepage = await request("/homepage");
+  assert.equal(updatedHomepage.data.featuredProduct.id, 999);
+  assert.equal(updatedHomepage.data.content.hero.subtitle, "Backend-managed collection");
+
+  const invalidContent = structuredClone(updatedContent);
+  invalidContent.hero.buttonHref = "javascript:alert(1)";
+  assert.equal(
+    (await request("/homepage", "PUT", { content: invalidContent }, adminToken)).status,
+    400
+  );
+  assert.equal(await HomepageContent.countDocuments({ key: "default" }), 1);
+
+  await HomepageContent.updateOne(
+    { key: "default" },
+    {
+      $set: { "content.hero.title": "Existing custom title" },
+      $unset: { "content.site": 1, "content.recommendations": 1 },
+    }
+  );
+  await ensureHomepageContent();
+  const migrated = await request("/homepage");
+  assert.equal(migrated.data.content.hero.title, "Existing custom title");
+  assert.equal(migrated.data.content.site.brandName, "FASCO");
+  assert.equal(typeof migrated.data.content.recommendations.title, "string");
 });
