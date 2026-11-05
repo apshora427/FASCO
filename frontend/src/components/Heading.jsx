@@ -1,4 +1,3 @@
-// TODO: build from the Figma frame — Generic heading primitive
 const Heading = () => (
   <section className="container py-[40px]">
     <div className="rounded-[8px] border border-dashed border-line p-8 text-center">

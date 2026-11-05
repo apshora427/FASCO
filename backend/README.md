@@ -20,10 +20,52 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-The backend creates a persistent, local MongoDB replica set automatically
-when `MONGODB_URI` is unset. The first run may take a little longer while the
-MongoDB binary starts. The API seeds the product catalog, categories, coupon,
-and (when configured) administrator account at startup.
+When `MONGODB_URI` is unset, the backend starts a persistent local MongoDB
+replica set automatically. Its database files live outside the repository in
+`%LOCALAPPDATA%\FASCO\mongodb` on Windows, so no database folder is added to
+the project or GitHub. MongoDB Compass can connect to
+`mongodb://127.0.0.1:27018/fasco?replicaSet=testset`. Set `MONGODB_URI` in
+`.env` to use an installed MongoDB Community Server or another replica-set
+deployment. The API seeds the product catalog, categories, coupon, and (when
+configured) administrator account at startup.
+
+### Optional: use MongoDB Community Server
+
+To use MongoDB Community Server instead of the automatic local database,
+install MongoDB Community Server and MongoDB Shell from PowerShell:
+
+```powershell
+winget install --id MongoDB.Server --exact
+winget install --id MongoDB.Shell --exact
+```
+
+In the server's `mongod.cfg` file, add the following top-level section (keep
+existing settings):
+
+```yaml
+replication:
+  replSetName: rs0
+```
+
+Find the config path used by the Windows service with:
+
+```powershell
+(Get-CimInstance Win32_Service -Filter "Name='MongoDB'").PathName
+```
+
+Restart the service, initialize the replica set once, then set the connection
+string in `backend/.env`:
+
+```powershell
+Restart-Service MongoDB
+mongosh "mongodb://127.0.0.1:27017/admin" --eval "rs.initiate()"
+```
+
+```dotenv
+MONGODB_URI=mongodb://127.0.0.1:27017/fasco?replicaSet=rs0
+```
+
+MongoDB stores its files in its own configured database directory.
 
 ## Instructor / reviewer quick check
 
@@ -43,8 +85,9 @@ are intentionally not included in GitHub.
    An administrator can edit homepage copy, images, links, testimonials, and
    campaign layout in **Admin → Homepage**.
 5. To inspect MongoDB directly, open MongoDB Compass and connect to
-   `mongodb://127.0.0.1:27018/fasco?replicaSet=testset`. The local database
-   files live under `backend/.mongo-data/` and are not committed.
+   `mongodb://127.0.0.1:27018/fasco?replicaSet=testset`. On Windows, the
+   persistent database is stored under `%LOCALAPPDATA%\FASCO\mongodb`; it is
+   not part of the repository.
 6. To sign in as an administrator, set `ADMIN_EMAIL` and a private
    `ADMIN_PASSWORD` in `backend/.env`, then restart the backend. The admin
    account is created/synchronized from these settings. Sign in with
@@ -62,31 +105,38 @@ are intentionally not included in GitHub.
    transactions, coupons, orders, and other API flows against a temporary
    MongoDB replica set.
 
-### Configure email delivery for a live demonstration
+### Configure a Mailtrap test inbox
 
 Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and
-`SMTP_FROM` in the local `backend/.env`. For Gmail, use a Google App Password
-(requires 2-Step Verification), not your normal account password. Keep the
-App Password private. The common Gmail settings are:
+`SMTP_FROM` in the local `backend/.env` using the SMTP settings shown in your
+Mailtrap Email Testing sandbox. Mailtrap captures the signup-verification and
+password-recovery messages in its web inbox instead of delivering them to a
+real recipient address. The instructor must have access to that Mailtrap
+inbox to inspect the messages. Keep the sandbox credentials private and never
+commit them:
 
 ```dotenv
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
+SMTP_HOST=sandbox.smtp.mailtrap.io
+SMTP_PORT=2525
 SMTP_SECURE=false
-SMTP_USER=your-address@gmail.com
-SMTP_PASS=your-private-app-password
-SMTP_FROM="FASCO" <your-address@gmail.com>
+SMTP_USER=your-mailtrap-sandbox-username
+SMTP_PASS=your-mailtrap-sandbox-password
+SMTP_FROM="FASCO" <hello@fasco.test>
 ```
 
 After restarting the API, readiness reports `checks.email.status: "configured"`.
-Registering a user sends a verification code; `POST /api/v1/forgot-password`
-sends a reset code without revealing whether the account exists. Both codes
-are short-lived verification codes hidden from normal user API responses;
-passwords themselves are stored as bcrypt hashes. Codes expire after ten
-minutes. The automated test reads the code directly from its isolated test
-database because it does not depend on external SMTP. `configured` means
-credentials are present; send a real signup/reset email to verify the SMTP
-provider accepts them.
+Register a new user and find the confirmation code in the Mailtrap inbox.
+New accounts are stored with `isVerified: false`; login is blocked until the
+code is entered on the confirmation screen. The **Resend** action requests a
+fresh code if needed. `POST /api/v1/forgot-password` sends a reset code to the
+same Mailtrap inbox without revealing whether an account exists. Codes expire
+after ten minutes. The automated test verifies signup confirmation without
+external SMTP. `configured` only means SMTP credentials are present; confirm
+delivery by completing a signup and checking the sandbox inbox.
+
+Mailtrap is an email-testing sandbox, not a public disposable-mail provider.
+To deliver to an actual temporary inbox, configure an SMTP provider that
+permits delivery to that inbox instead.
 
 ### Demonstrate a password reset with the API
 
@@ -261,10 +311,9 @@ reservation release are transactional as well. Order prices and discounts are
 recalculated by the server. Stock is reserved when the order is created and
 restored only when cancelled before shipment.
 MongoDB must be a replica set or sharded cluster; startup rejects standalone
-deployments that cannot provide transactions. The embedded development
-database uses a one-member replica set on `127.0.0.1:27018`, preserving the
-local database across restarts without changing the configured replica-set
-address. Integration tests use temporary one-member replica sets.
+deployments that cannot provide transactions. Local development starts a
+persistent one-member replica set automatically. Integration tests use
+isolated temporary one-member replica sets.
 
 Order transitions are `pending → confirmed → packed → shipped → delivered`.
 An order may be cancelled from `pending`, `confirmed`, or `packed`; `shipped`,
@@ -371,7 +420,7 @@ asserted.
 | `PORT`         | `8000`                    | API port                       |
 | `CLIENT_ORIGIN`| `http://localhost:5173`   | allowed CORS origin (Vite dev) |
 | `NODE_ENV`     | `development`             | `production` silences logs     |
-| `MONGODB_URI`  | embedded local replica set in dev | Replica-set or sharded-cluster MongoDB URI; optional only in development |
+| `MONGODB_URI`  | persistent local replica set on `127.0.0.1:27018` | Optional replica-set or sharded-cluster MongoDB URI |
 | `JWT_SECRET`   | development-only fallback | Must be a random value of at least 32 characters in production |
 | `JWT_EXPIRES_IN` | `7d`                     | Access-token lifetime           |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | `admin@fasco.com` / unset | First admin seed credentials |

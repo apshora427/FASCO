@@ -1,7 +1,7 @@
 node_modules
 dist
 
-# backend embedded dev database
+# legacy local database data from older development setups
 .mongo-data
 dist-ssr
 *.local

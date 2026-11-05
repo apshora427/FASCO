@@ -1,6 +1,3 @@
-// Lightweight client for the Express backend in /backend.
-// Uses the same env pattern as the reference project: VITE_AUTH_URL.
-// Falls back to the local dev server (server.js default port 8000).
 const BASE_URL = import.meta.env.VITE_AUTH_URL || "http://localhost:8000/api/v1"
 
 // Persistent sign-ins use localStorage; temporary sign-ins use sessionStorage.

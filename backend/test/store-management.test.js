@@ -139,8 +139,19 @@ test("verifies new customer email and starts an authenticated session", async ()
 
   const pendingUser = await User.findOne({ email }).select("+verifyCode +password");
   assert.ok(pendingUser?.verifyCode);
+  assert.equal(pendingUser.isVerified, false);
   assert.match(pendingUser.password, /^\$2[aby]\$/);
   assert.equal(await bcrypt.compare("Fresh-1!", pendingUser.password), true);
+  assert.equal(
+    (
+      await request("/login", "POST", {
+        email,
+        password: "Fresh-1!",
+        role: "user",
+      })
+    ).status,
+    403
+  );
   const verification = await request("/verify", "POST", {
     email,
     code: pendingUser.verifyCode,

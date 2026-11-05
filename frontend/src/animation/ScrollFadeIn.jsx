@@ -5,8 +5,6 @@ const ScrollFadeIn = ({ children, delay = 0 }) => {
   const prefersReducedMotion = useReducedMotion();
   const { ref, inView } = useInView({
     triggerOnce: true,
-    // low threshold so tall sections still trigger on small viewports —
-    // 40% was unreachable when a section is much taller than the window
     threshold: 0.1,
   });
 

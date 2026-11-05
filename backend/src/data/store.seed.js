@@ -1,8 +1,6 @@
 import { Coupon } from "../models/coupon.model.js";
 import { Category } from "../models/category.model.js";
 
-// The storefront's five filter pills (data/products.js) — created on first boot
-// so /category is never empty and the dashboard can manage them from there.
 const STORE_CATEGORIES = [
   "Men's Fashion",
   "Women's Fashion",
@@ -20,8 +18,6 @@ export const ensureSeedCategories = async () => {
   }
 };
 
-// The code advertised on the checkout page (FASCO10 / 0.1) as a real,
-// editable coupon — Apply now validates against the database.
 export const ensureSeedCoupons = async () => {
   if (!(await Coupon.exists({ code: "FASCO10" }))) {
     await Coupon.create({

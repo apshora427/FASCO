@@ -1,11 +1,14 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import mongoose from "mongoose";
 import { env } from "./env.js";
 
-// The embedded development database keeps its files in backend/.mongo-data.
-const dataDir = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../../.mongo-data");
+const dataRoot =
+  process.env.LOCALAPPDATA ||
+  process.env.XDG_DATA_HOME ||
+  path.join(os.homedir(), ".local", "share");
+const dataDir = path.join(dataRoot, "FASCO", "mongodb");
 const embeddedMongoPort = 27018;
 const embeddedReplicaSetName = "testset";
 
@@ -44,7 +47,7 @@ const initializeEmbeddedReplicaSet = async (server) => {
     const host = `127.0.0.1:${embeddedMongoPort}`;
     if (existing) {
       if (existing.members.length !== 1) {
-        throw new Error("The embedded development database must contain exactly one replica-set member");
+        throw new Error("The local development database must contain exactly one replica-set member");
       }
       if (existing.members[0].host !== host) {
         const config = {
@@ -71,7 +74,7 @@ const initializeEmbeddedReplicaSet = async (server) => {
       if (hello.isWritablePrimary) return;
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    throw new Error("Embedded MongoDB replica set did not elect a primary");
+    throw new Error("Local MongoDB replica set did not elect a primary");
   } finally {
     await client.close();
   }
@@ -79,30 +82,29 @@ const initializeEmbeddedReplicaSet = async (server) => {
 
 export const connectDB = async () => {
   let uri = env.mongoUri;
-
-  if (!uri) {
-    const { MongoMemoryServer } = await import("mongodb-memory-server");
-    fs.mkdirSync(dataDir, { recursive: true });
-    memoryServer = new MongoMemoryServer({
-      instance: {
-        dbPath: dataDir,
-        storageEngine: "wiredTiger",
-        replSet: embeddedReplicaSetName,
-        ip: "127.0.0.1",
-        port: embeddedMongoPort,
-        launchTimeout: 30_000,
-      },
-    });
-    await memoryServer.start();
-    await initializeEmbeddedReplicaSet(memoryServer);
-    uri = `${memoryServer.getUri()}?replicaSet=${embeddedReplicaSetName}`;
-    console.log(
-      `MONGODB_URI not set — using embedded replica-set dev database on 127.0.0.1:${embeddedMongoPort} (backend/.mongo-data). ` +
-        "Set MONGODB_URI in .env to use a replica-set-capable MongoDB."
-    );
-  }
-
   try {
+    if (!uri) {
+      const { MongoMemoryServer } = await import("mongodb-memory-server");
+      fs.mkdirSync(dataDir, { recursive: true });
+      memoryServer = new MongoMemoryServer({
+        instance: {
+          dbPath: dataDir,
+          storageEngine: "wiredTiger",
+          replSet: embeddedReplicaSetName,
+          ip: "127.0.0.1",
+          port: embeddedMongoPort,
+          launchTimeout: 30_000,
+        },
+      });
+      await memoryServer.start();
+      await initializeEmbeddedReplicaSet(memoryServer);
+      uri = `${memoryServer.getUri()}?replicaSet=${embeddedReplicaSetName}`;
+      console.log(
+        `MONGODB_URI not set — using persistent local MongoDB on 127.0.0.1:${embeddedMongoPort}. ` +
+          `Database files: ${dataDir}`
+      );
+    }
+
     await mongoose.connect(withDbName(uri));
     const hello = await mongoose.connection.db.admin().command({ hello: 1 });
     if (!hello.setName && hello.msg !== "isdbgrid") {
@@ -121,7 +123,7 @@ export const connectDB = async () => {
       try {
         await failedMemoryServer.stop();
       } catch (stopError) {
-        console.error("Could not stop the embedded MongoDB after startup failed:", stopError.message);
+        console.error("Could not stop the local MongoDB after startup failed:", stopError.message);
       }
     }
     throw error;

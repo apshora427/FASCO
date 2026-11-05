@@ -33,11 +33,14 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-By default, the backend starts an embedded, persistent MongoDB replica set
-and seeds the catalog. Check `http://localhost:8000/api/v1/health/ready` and
+The backend starts a persistent local MongoDB replica set automatically and
+seeds the catalog. Check `http://localhost:8000/api/v1/health/ready` and
 `http://localhost:8000/api/v1/product`. To inspect stored documents with
 MongoDB Compass, connect to
-`mongodb://127.0.0.1:27018/fasco?replicaSet=testset`.
+`mongodb://127.0.0.1:27018/fasco?replicaSet=testset`. On Windows, database
+files stay outside the repository under `%LOCALAPPDATA%\FASCO\mongodb`.
+Optional MongoDB Community setup instructions are in
+[`backend/README.md`](./backend/README.md).
 
 Run the backend integration tests from `backend/`:
 
@@ -45,10 +48,10 @@ Run the backend integration tests from `backend/`:
 npm.cmd test
 ```
 
-Real email delivery and Stripe payments require private credentials in the
-local `.env`; credentials are intentionally not stored in this repository.
-The backend README explains how to configure a mail provider and demonstrate
-signup verification and password recovery.
+Signup verification and password recovery use SMTP. The backend README
+explains how to configure a private Mailtrap Email Testing sandbox so an
+instructor can inspect the confirmation and recovery messages without
+committing credentials. Stripe payments also require private credentials.
 
 To run the optional storefront, open a second terminal, change to `frontend/`,
 then run `npm.cmd install` and `npm.cmd run dev`. The Vite app uses the local

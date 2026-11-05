@@ -1,7 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 
-// Small label + heading pair used above every homepage/shop section.
 function SectionHead({ text, para }) {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.4 });
   const prefersReducedMotion = useReducedMotion();

@@ -3,9 +3,6 @@ import { env } from "../config/env.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 
-// Verifies the access token issued at login. The frontend sends it raw in the
-// Authorization header (same convention as the guide project) and the decoded
-// payload lands on req.user for controllers to scope by.
 export const requireAuth = async (req, _res, next) => {
   const token = req.headers.authorization || req.headers.Authorization;
 

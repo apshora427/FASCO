@@ -1,6 +1,3 @@
-// Seed catalogue — mirrors frontend/src/data/products.js so the API serves the
-// exact same products the design shows. Images are stored as registry keys
-// (resolved to bundled assets on the frontend), not URLs.
 const mk = (id, title, image, category, extra = {}) => ({
   id,
   title,

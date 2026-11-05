@@ -11,10 +11,6 @@ import {
   setAuthToken,
 } from "../api/backend"
 
-// Auth layer backed by the Express backend (src/controllers/auth.controller.js).
-// Exposes the same surface the pages were written against — currentUser,
-// isGuest, loading, addUser, LogInUser, googleSignIn, enterGuestMode, logOut —
-// plus isAdmin/verifyCode helpers for the confirmation flow and dashboard.
 export const UserContext = createContext()
 
 const SESSION_KEY = "fasco_session"

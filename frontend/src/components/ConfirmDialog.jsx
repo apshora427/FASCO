@@ -1,4 +1,3 @@
-// TODO: build from the Figma frame — Modal confirm dialog
 const ConfirmDialog = () => (
   <section className="container py-[40px]">
     <div className="rounded-[8px] border border-dashed border-line p-8 text-center">

@@ -34,12 +34,12 @@ export const env = {
   // --- email (nodemailer / SMTP) ------------------------------------------
   // SMTP credentials are required to deliver confirmation and reset codes.
   smtp: {
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: toPort(process.env.SMTP_PORT, 587),
+    host: process.env.SMTP_HOST || "sandbox.smtp.mailtrap.io",
+    port: toPort(process.env.SMTP_PORT, 2525),
     secure: process.env.SMTP_SECURE === "true",
     user: process.env.SMTP_USER || "",
     pass: process.env.SMTP_PASS || "",
-    from: process.env.SMTP_FROM || '"FASCO" <no-reply@fasco.com>',
+    from: process.env.SMTP_FROM || '"FASCO" <hello@fasco.test>',
   },
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
@@ -50,7 +50,7 @@ if (env.isProduction) {
   if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
     throw new Error("JWT_SECRET must be set to a random value of at least 32 characters in production");
   }
-  if (!env.mongoUri) {
+  if (!process.env.MONGODB_URI) {
     throw new Error("MONGODB_URI must be configured in production");
   }
   if (!process.env.CLIENT_ORIGIN || env.clientOrigins.length === 0) {
