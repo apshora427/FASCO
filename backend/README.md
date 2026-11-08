@@ -73,34 +73,41 @@ The repository is enough to run the backend and its automated checks. Real
 email delivery and Stripe payments need credentials supplied locally; they
 are intentionally not included in GitHub.
 
-1. Install Node.js 20.19 or newer, then run `npm install` and `npm run dev` from
-   `backend/`.
-2. Visit <http://localhost:8000/api/v1/health/ready>. A working local setup
+1. Install Node.js 20.19 or newer. From `backend/`, copy `.env.example` to
+   `.env` and set a private `ADMIN_EMAIL` and `ADMIN_PASSWORD` for the
+   instructor's dashboard login. Replace any example values; use a strong
+   password and keep `.env` private (never commit or send it with the source).
+   Then run `npm install` and `npm run dev`.
+2. The backend creates or synchronizes the verified administrator account
+   from those two settings at startup. Start the frontend as described below,
+   open `/admin` on its local site, and sign in with the configured email and
+   password. The sign-in page redirects unauthenticated visitors to `/login`;
+   choose **Administrator account** before signing in.
+3. Visit <http://localhost:8000/api/v1/health/ready>. A working local setup
    returns `status: "ready"`, a MongoDB topology of `replica_set`, and whether
    an email provider is configured. The older `/health` endpoint is a liveness check only.
-3. Visit <http://localhost:8000/api/v1/product>. On a fresh database, the
+4. Visit <http://localhost:8000/api/v1/product>. On a fresh database, the
    first boot seeds 18 products.
-4. Visit <http://localhost:8000/api/v1/homepage> to verify homepage content,
+5. Visit <http://localhost:8000/api/v1/homepage> to verify homepage content,
    featured products, arrivals, and discounted deals are coming from MongoDB.
    An administrator can edit homepage copy, images, links, testimonials, and
    campaign layout in **Admin → Homepage**.
-5. To inspect MongoDB directly, open MongoDB Compass and connect to
+6. To inspect MongoDB directly, open MongoDB Compass and connect to
    `mongodb://127.0.0.1:27018/fasco?replicaSet=testset`. On Windows, the
    persistent database is stored under `%LOCALAPPDATA%\FASCO\mongodb`; it is
    not part of the repository.
-6. To sign in as an administrator, set `ADMIN_EMAIL` and a private
-   `ADMIN_PASSWORD` in `backend/.env`, then restart the backend. The admin
-   account is created/synchronized from these settings. Sign in with
-   `POST /api/v1/login` using `{ "email": "...", "password": "...", "role": "admin" }`.
+7. Admin API access can also be tested with
+   `POST /api/v1/login` using
+   `{ "email": "...", "password": "...", "role": "admin" }`.
    Use its returned `userInfo.accesstoken` as the raw `Authorization` header
    for `GET /api/v1/users`, `GET /api/v1/dashboard/stats`, and other admin
    endpoints.
-7. To test real verification and password-recovery mail, configure Resend or
+8. To test real verification and password-recovery mail, configure Resend or
    SMTP using the steps below, restart, and register an email address you can access.
    The password-recovery email contains a **6-digit, 10-minute code**, not a
    password-reset link. Enter that code in the recovery flow and choose a new
    password. Never commit `.env` or paste mail credentials into source files.
-8. Run `npm test` from `backend/` (`npm.cmd test` in PowerShell) to verify
+9. Run `npm test` from `backend/` (`npm.cmd test` in PowerShell) to verify
    auth, database persistence, password recovery, permissions, inventory
    transactions, coupons, orders, and other API flows against a temporary
    MongoDB replica set.
@@ -119,6 +126,11 @@ Configure these production environment variables for the `backend` service:
   URI (for example, MongoDB Atlas). The local automatic database cannot run
   inside a Vercel Function.
 - `JWT_SECRET`: a private random value with at least 32 characters.
+- `ADMIN_EMAIL` and `ADMIN_PASSWORD`: set these for the backend service to
+  create/synchronize the administrator account. The reviewer signs in at
+  `/admin` using these credentials (select **Administrator account** on the
+  sign-in page). Share the login credentials with the reviewer privately;
+  never commit them to GitHub. Redeploy after changing environment variables.
 - Email is optional for starting the storefront. To enable verification and
   recovery messages, configure either `RESEND_API_KEY` and `EMAIL_FROM` (a
   sender address verified by Resend) or `SMTP_HOST`, `SMTP_PORT`,
@@ -129,7 +141,6 @@ Configure these production environment variables for the `backend` service:
   capture. Keep all credentials private.
 - `GOOGLE_CLIENT_ID` on the backend and the same value as
   `VITE_GOOGLE_CLIENT_ID` on the frontend to enable Google sign-in/sign-up.
-- `ADMIN_EMAIL` and `ADMIN_PASSWORD`: administrator login credentials.
 - `BLOB_READ_WRITE_TOKEN`: connect a Vercel Blob store to the backend service
   to enable durable product-image uploads.
 
@@ -482,7 +493,7 @@ asserted.
 | `MONGODB_URI`  | persistent local replica set on `127.0.0.1:27018` | Optional replica-set or sharded-cluster MongoDB URI |
 | `JWT_SECRET`   | development-only fallback | Must be a random value of at least 32 characters in production |
 | `JWT_EXPIRES_IN` | `7d`                     | Access-token lifetime           |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | `admin@fasco.com` / unset | First admin seed credentials |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Set in `backend/.env` | First admin seed credentials; keep the password private |
 | `GOOGLE_CLIENT_ID` | unset                 | Google Identity Services Web client id |
 | `VITE_GOOGLE_CLIENT_ID` | unset            | Same client id, exposed to the frontend build |
 | `RESEND_API_KEY` / `EMAIL_FROM` | unset     | Resend API key and verified sender; preferred for real inbox delivery |
