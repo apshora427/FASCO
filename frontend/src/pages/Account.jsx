@@ -16,6 +16,7 @@ import Navbar from "../components/Navbar"
 import Footer from "../components/Footer"
 import { changePassword, getMyOrders, requestEmailChange, updateProfile, verifyEmailChange } from "../api/backend"
 import { UseUser } from "../context/UserContext"
+import { isStrongPassword, PASSWORD_ERROR } from "../utils/passwordValidation"
 
 const TABS = [
   { id: "profile", label: "Personal details", icon: LuUserRound },
@@ -183,6 +184,14 @@ export default function Account() {
 
   const saveNewPassword = async (event) => {
     event.preventDefault()
+    if (!isStrongPassword(newPassword)) {
+      toast.error(PASSWORD_ERROR)
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match.")
+      return
+    }
     setSavingPassword(true)
     try {
       const result = await changePassword(currentPassword, newPassword, confirmPassword)
@@ -390,14 +399,14 @@ export default function Account() {
                     <div className="account-form-grid">
                       <label className="account-field">
                         <span>New password</span>
-                        <input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={6} maxLength={12} required />
+                        <input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={8} maxLength={72} required />
                       </label>
                       <label className="account-field">
                         <span>Confirm new password</span>
-                        <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={6} maxLength={12} required />
+                        <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={8} maxLength={72} required />
                       </label>
                     </div>
-                    <p className="account-password-hint">6–12 characters, including uppercase, lowercase, a number, and a symbol.</p>
+                    <p className="account-password-hint">8–72 characters with uppercase and lowercase letters, a number, and a symbol.</p>
                     <button type="submit" disabled={savingPassword} className="account-primary">
                       {savingPassword ? "Updating…" : "Update password"} <LuArrowRight size={15} />
                     </button>

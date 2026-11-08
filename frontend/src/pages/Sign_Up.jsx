@@ -181,6 +181,8 @@ export default function Sign_Up() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 disabled={busy}
+                minLength={8}
+                maxLength={72}
                 required
               />
             </div>
@@ -196,6 +198,8 @@ export default function Sign_Up() {
                   setConfirmPassword(event.target.value)
                 }
                 disabled={busy}
+                minLength={8}
+                maxLength={72}
                 required
               />
             </div>

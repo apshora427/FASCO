@@ -10,6 +10,7 @@ import {
   getAuthToken,
   setAuthToken,
 } from "../api/backend"
+import { isStrongPassword, PASSWORD_ERROR } from "../utils/passwordValidation"
 
 export const UserContext = createContext()
 
@@ -48,7 +49,6 @@ const UserProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?])[a-zA-Z\d!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]{6,12}$/
   const nameRegex = /^[a-zA-Z]+(?:[-'\s][a-zA-Z]+)*$/
 
   // Restore a saved guest session and derive signed-in identity from /me.
@@ -119,8 +119,8 @@ const UserProvider = ({ children }) => {
       toastify("error", "Invalid Email")
       return Promise.reject(new Error("invalid email"))
     }
-    if (!passwordRegex.test(password)) {
-      toastify("error", "The password must be strong")
+    if (!isStrongPassword(password)) {
+      toastify("error", PASSWORD_ERROR)
       return Promise.reject(new Error("weak password"))
     }
 

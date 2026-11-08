@@ -16,7 +16,13 @@ import {
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordRegex =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?])[a-zA-Z\d!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]{6,12}$/;
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s])\S{8,72}$/;
+const isValidPassword = (password) =>
+  typeof password === "string" &&
+  Buffer.byteLength(password, "utf8") <= 72 &&
+  passwordRegex.test(password);
+const passwordRequirements =
+  "Password must be 8–72 characters and include an uppercase letter, a lowercase letter, a number, and a symbol";
 const nameRegex = /^[a-zA-Z]+(?:[-'\s][a-zA-Z]+)*$/;
 const CODE_TTL_MINUTES = 10;
 const CODE_MAX_ATTEMPTS = 5;
@@ -166,8 +172,8 @@ export const register = asyncHandler(async (req, res) => {
   }
   if (!nameRegex.test(cleanName)) throw new ApiError(400, "Name contains invalid characters");
   if (!emailRegex.test(normalizedEmail)) throw new ApiError(400, "Invalid email address");
-  if (typeof password !== "string" || !passwordRegex.test(password)) {
-    throw new ApiError(400, "Password must be 6–12 characters and include an uppercase letter, a lowercase letter, a number, and a special character");
+  if (!isValidPassword(password)) {
+    throw new ApiError(400, passwordRequirements);
   }
 
   let user = await User.findOne({ email: normalizedEmail })
@@ -316,8 +322,8 @@ export const setNewPassword = asyncHandler(async (req, res) => {
   const user = await getCodeUser({ ...codeRequest(req), purpose: "reset" });
 
   if (newPassword !== confirmPassword) throw new ApiError(400, "Passwords do not match");
-  if (typeof newPassword !== "string" || !passwordRegex.test(newPassword)) {
-    throw new ApiError(400, "Password must be 6–12 characters and include an uppercase letter, a lowercase letter, a number, and a special character");
+  if (!isValidPassword(newPassword)) {
+    throw new ApiError(400, passwordRequirements);
   }
 
   const result = await User.updateOne(
@@ -561,8 +567,8 @@ export const changePassword = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Enter your current password");
   }
   if (newPassword !== confirmPassword) throw new ApiError(400, "Passwords do not match");
-  if (typeof newPassword !== "string" || !passwordRegex.test(newPassword)) {
-    throw new ApiError(400, "Password must be 6–12 characters and include an uppercase letter, a lowercase letter, a number, and a special character");
+  if (!isValidPassword(newPassword)) {
+    throw new ApiError(400, passwordRequirements);
   }
 
   const user = await User.findById(req.user.id).select("+password +tokenVersion");

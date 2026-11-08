@@ -12,11 +12,9 @@ import {
 
 import AuthLayout from "../components/AuthLayout"
 import { setNewPassword } from "../api/backend"
+import { isStrongPassword, PASSWORD_ERROR } from "../utils/passwordValidation"
 
 import confirmationImage from "../assets/reference/auth/confirmation.jpg"
-
-const passwordRegex =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?])[a-zA-Z\d!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]{6,12}$/
 
 export default function EnterNewPassword() {
   const navigate = useNavigate()
@@ -37,8 +35,8 @@ export default function EnterNewPassword() {
       return
     }
 
-    if (!passwordRegex.test(password)) {
-      toast.error("Use 6–12 characters, including uppercase, lowercase, a number, and a symbol.")
+    if (!isStrongPassword(password)) {
+      toast.error(PASSWORD_ERROR)
       return
     }
 
@@ -125,8 +123,8 @@ export default function EnterNewPassword() {
                   setPassword(event.target.value)
                 }
                 disabled={busy}
-                minLength={6}
-                maxLength={12}
+                minLength={8}
+                maxLength={72}
                 required
               />
 
@@ -149,7 +147,7 @@ export default function EnterNewPassword() {
             </div>
 
             <p className="mt-2 text-[11px] text-[#888]">
-              Use 6–12 characters, including uppercase, lowercase, a number, and a symbol.
+              Use 8–72 characters with uppercase and lowercase letters, a number, and a symbol.
             </p>
           </div>
 
@@ -173,8 +171,8 @@ export default function EnterNewPassword() {
                   setConfirmPassword(event.target.value)
                 }
                 disabled={busy}
-                minLength={6}
-                maxLength={12}
+                minLength={8}
+                maxLength={72}
                 required
               />
 

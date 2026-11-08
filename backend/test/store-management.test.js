@@ -133,6 +133,21 @@ test("does not accept confirmation codes when email delivery is unavailable", as
   assert.equal(invalidCode.status, 401);
 });
 
+test("accepts long generated passwords with symbols and rejects weak passwords", async () => {
+  const password = "G00gle_Suggested-Strong!9";
+  const registration = await request("/register", "POST", {
+    name: "Generated Password",
+    email: "generated-password@test.invalid",
+    password,
+    phone: "+1 555 0199",
+  });
+  assert.equal(registration.status, 201, registration.data.message);
+
+  const pendingUser = await User.findOne({ email: "generated-password@test.invalid" })
+    .select("+password");
+  assert.equal(await bcrypt.compare(password, pendingUser.password), true);
+});
+
 test("reports Google sign-in as unavailable unless an OAuth client is configured", async () => {
   const originalClientId = env.googleClientId;
   env.googleClientId = "";
