@@ -1,4 +1,5 @@
 import rateLimit from "express-rate-limit";
+import { env } from "../config/env.js";
 
 const createLimiter = (limit, message) =>
   rateLimit({
@@ -19,10 +20,9 @@ export const loginRateLimit = createLimiter(
   "Too many sign-in attempts. Please try again in 15 minutes."
 );
 
-export const registrationRateLimit = createLimiter(
-  5,
-  "Too many registration attempts. Please try again in 15 minutes."
-);
+export const registrationRateLimit = env.isProduction
+  ? createLimiter(5, "Too many registration attempts. Please try again in 15 minutes.")
+  : (_req, _res, next) => next();
 
 export const verificationRateLimit = createLimiter(
   10,

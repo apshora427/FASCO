@@ -190,6 +190,13 @@ SMTP_PASS=your-mailtrap-sandbox-password
 SMTP_FROM="FASCO" <hello@fasco.test>
 ```
 
+Mailtrap Email Testing is a sandbox: it captures these messages in its web
+inbox and does not deliver them to the recipient's real mailbox. Use the
+credentials from **Mailtrap → Email Testing → your inbox → SMTP Settings**.
+The backend's development signup-specific rate limit is disabled to make
+local retries practical; the general authentication limit still applies.
+Production keeps a five-registration limit per IP per 15 minutes.
+
 After restarting the API, readiness reports `checks.email.status: "configured"`
 and the selected provider. Register a new user and find the confirmation code
 in the configured inbox.

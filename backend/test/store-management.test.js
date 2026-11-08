@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { withDbName } from "../src/config/db.config.js";
 import { env } from "../src/config/env.js";
+import { registrationRateLimit } from "../src/middleware/authRateLimit.js";
 import { createApp } from "../src/app.js";
 import { Product } from "../src/models/product.model.js";
 import { User } from "../src/models/user.model.js";
@@ -75,6 +76,15 @@ test("adds the default database without corrupting MongoDB URI query options", (
     withDbName("mongodb://127.0.0.1:27017/store?authSource=admin"),
     "mongodb://127.0.0.1:27017/store?authSource=admin"
   );
+});
+
+test("does not apply the extra signup cooldown in development", () => {
+  if (env.isProduction) return;
+  let continued = false;
+  registrationRateLimit({}, {}, () => {
+    continued = true;
+  });
+  assert.equal(continued, true);
 });
 
 test("does not accept confirmation codes when email delivery is unavailable", async () => {
