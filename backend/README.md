@@ -71,13 +71,15 @@ MongoDB stores its files in its own configured database directory.
 
 The repository is enough to run the backend and its automated checks. Real
 email delivery and Stripe payments need credentials supplied locally; they
-are intentionally not included in GitHub.
+are intentionally not included in GitHub. For sandbox email review, the
+instructor can configure their own Mailtrap inbox or receive private access to
+the project's test inbox.
 
 1. Install Node.js 20.19 or newer. From `backend/`, copy `.env.example` to
-   `.env` and set a private `ADMIN_EMAIL` and `ADMIN_PASSWORD` for the
-   instructor's dashboard login. Replace any example values; use a strong
-   password and keep `.env` private (never commit or send it with the source).
-   Then run `npm install` and `npm run dev`.
+   `.env`, choose an `ADMIN_EMAIL`, and set a private `ADMIN_PASSWORD`. The
+   example intentionally contains no working admin password. Keep `.env`
+   private; never commit or send it with the source. Then run `npm install`
+   and `npm run dev`.
 2. The backend creates or synchronizes the verified administrator account
    from those two settings at startup. Start the frontend as described below,
    open `/admin` on its local site, and sign in with the configured email and
@@ -102,11 +104,12 @@ are intentionally not included in GitHub.
    Use its returned `userInfo.accesstoken` as the raw `Authorization` header
    for `GET /api/v1/users`, `GET /api/v1/dashboard/stats`, and other admin
    endpoints.
-8. To test real verification and password-recovery mail, configure Resend or
-   SMTP using the steps below, restart, and register an email address you can access.
+8. To test signup verification and password recovery, configure a Mailtrap
+   Email Testing inbox or Resend as described below, then restart the backend.
    The password-recovery email contains a **6-digit, 10-minute code**, not a
    password-reset link. Enter that code in the recovery flow and choose a new
-   password. Never commit `.env` or paste mail credentials into source files.
+   password. Without a configured provider, email-dependent signup returns an
+   explicit error and no verification code is issued.
 9. Run `npm test` from `backend/` (`npm.cmd test` in PowerShell) to verify
    auth, database persistence, password recovery, permissions, inventory
    transactions, coupons, orders, and other API flows against a temporary
@@ -174,12 +177,12 @@ commit the API key.
 Alternatively, configure a Mailtrap test inbox:
 
 Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and
-`SMTP_FROM` in the local `backend/.env` using the SMTP settings shown in your
-Mailtrap Email Testing sandbox. Mailtrap captures the signup-verification and
-password-recovery messages in its web inbox instead of delivering them to a
-real recipient address. The instructor must have access to that Mailtrap
-inbox to inspect the messages. Keep the sandbox credentials private and never
-commit them:
+`SMTP_FROM` in `backend/.env` using the SMTP settings shown in a Mailtrap Email
+Testing sandbox. Mailtrap captures signup-verification and password-recovery
+messages in that sandbox's web inbox; it does not deliver them to real
+recipient addresses. The instructor can use their own Mailtrap sandbox and
+credentials, or you can share access to your test inbox privately. Never
+commit sandbox credentials or put them in `.env.example`.
 
 ```dotenv
 SMTP_HOST=sandbox.smtp.mailtrap.io
@@ -500,7 +503,7 @@ asserted.
 | `MONGODB_URI`  | persistent local replica set on `127.0.0.1:27018` | Optional replica-set or sharded-cluster MongoDB URI |
 | `JWT_SECRET`   | development-only fallback | Must be a random value of at least 32 characters in production |
 | `JWT_EXPIRES_IN` | `7d`                     | Access-token lifetime           |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Set in `backend/.env` | First admin seed credentials; keep the password private |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | `admin@example.com` / unset | First admin seed credentials; set a private password before startup |
 | `GOOGLE_CLIENT_ID` | unset                 | Google Identity Services Web client id |
 | `VITE_GOOGLE_CLIENT_ID` | unset            | Same client id, exposed to the frontend build |
 | `RESEND_API_KEY` / `EMAIL_FROM` | unset     | Resend API key and verified sender; preferred for real inbox delivery |

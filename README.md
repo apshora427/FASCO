@@ -27,6 +27,12 @@ inventory, orders, and payment workflows.
 See the [backend setup, instructor review guide, API reference, and email
 provider instructions](./backend/README.md).
 
+For an instructor review, use the **Instructor / reviewer quick check** in
+`backend/README.md`. The reviewer creates a private local `.env` from the
+example, sets their own admin login, and can use their own Mailtrap test inbox
+to inspect verification and password-recovery codes. No working credentials
+are stored in this repository.
+
 Quick start (from `backend/`):
 
 ```powershell
