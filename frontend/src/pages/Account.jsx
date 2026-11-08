@@ -406,7 +406,7 @@ export default function Account() {
                         <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={8} maxLength={72} required />
                       </label>
                     </div>
-                    <p className="account-password-hint">8–72 characters with uppercase and lowercase letters, a number, and a symbol.</p>
+                    <p className="account-password-hint">Use at least 8 characters. Passwords may be up to 72 bytes.</p>
                     <button type="submit" disabled={savingPassword} className="account-primary">
                       {savingPassword ? "Updating…" : "Update password"} <LuArrowRight size={15} />
                     </button>

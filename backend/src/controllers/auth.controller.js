@@ -15,14 +15,12 @@ import {
 } from "../utils/mailer.js";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const passwordRegex =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s])\S{8,72}$/;
 const isValidPassword = (password) =>
   typeof password === "string" &&
-  Buffer.byteLength(password, "utf8") <= 72 &&
-  passwordRegex.test(password);
+  password.length >= 8 &&
+  Buffer.byteLength(password, "utf8") <= 72;
 const passwordRequirements =
-  "Password must be 8–72 characters and include an uppercase letter, a lowercase letter, a number, and a symbol";
+  "Password must contain at least 8 characters and be no more than 72 bytes";
 const nameRegex = /^[a-zA-Z]+(?:[-'\s][a-zA-Z]+)*$/;
 const CODE_TTL_MINUTES = 10;
 const CODE_MAX_ATTEMPTS = 5;

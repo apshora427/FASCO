@@ -147,7 +147,7 @@ export default function EnterNewPassword() {
             </div>
 
             <p className="mt-2 text-[11px] text-[#888]">
-              Use 8–72 characters with uppercase and lowercase letters, a number, and a symbol.
+              Use at least 8 characters. Passwords may be up to 72 bytes.
             </p>
           </div>
 

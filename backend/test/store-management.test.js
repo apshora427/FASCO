@@ -133,8 +133,8 @@ test("does not accept confirmation codes when email delivery is unavailable", as
   assert.equal(invalidCode.status, 401);
 });
 
-test("accepts long generated passwords with symbols and rejects weak passwords", async () => {
-  const password = "G00gle_Suggested-Strong!9";
+test("accepts long password-manager-generated passwords", async () => {
+  const password = "A8vK2sM9qR4xW7pB";
   const registration = await request("/register", "POST", {
     name: "Generated Password",
     email: "generated-password@test.invalid",
